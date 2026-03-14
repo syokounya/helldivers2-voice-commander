@@ -48,6 +48,12 @@ class SettingsTab:
         )
         scrollable_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
+        # 绑定鼠标滚轮事件（修复滚动问题）
+        def _on_mousewheel(event):
+            scrollable_frame._parent_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        
+        scrollable_frame.bind_all("<MouseWheel>", _on_mousewheel)
+        
         # 创建居中的内容容器（限制最大宽度）
         content_frame = ctk.CTkFrame(scrollable_frame, fg_color="#000000")
         content_frame.pack(fill="x", expand=False, padx=20, pady=20)
