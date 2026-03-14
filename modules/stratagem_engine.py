@@ -5,13 +5,14 @@
 import time
 from typing import Optional, Callable, List
 from .aliyun_asr import AliyunASREngine
+from .vosk_asr import VoskASREngine
 from .stratagem_manager import StratagemManager
 from .stratagem_matcher import StratagemMatcher
 from .key_executor import KeyExecutor
 
 
 class StratagemEngine:
-    """战备执行引擎（使用阿里云实时语音识别）"""
+    """战备执行引擎（支持阿里云和 Vosk）"""
     
     def __init__(
         self,
@@ -28,7 +29,8 @@ class StratagemEngine:
         
         self._log_callback = log_callback
         self._key_log_callback = key_log_callback
-        self._asr_engine: Optional[AliyunASREngine] = None
+        self._asr_engine = None  # 可以是 AliyunASREngine 或 VoskASREngine
+        self._asr_mode = "aliyun"  # 默认阿里云
         self._running = False
         
         # 防止重复触发
@@ -95,6 +97,17 @@ class StratagemEngine:
             enable_local_processing=enable_local_processing,
         )
     
+    
+    def set_vosk_model(self, model_path: str = "./vosk",
+                       on_status_callback: Optional[Callable[[str, str, str], None]] = None):
+        """设置 Vosk 离线模型"""
+        self._asr_engine = VoskASREngine(
+            model_path=model_path,
+            sample_rate=16000,
+            on_result_callback=self._on_asr_result,
+            on_status_callback=on_status_callback,
+        )
+
     def _on_asr_result(self, text: str, is_final: bool):
         """阿里云识别结果回调"""
         # 只处理最终结果，忽略部分识别

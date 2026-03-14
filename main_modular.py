@@ -99,6 +99,7 @@ class StratagemApp(ctk.CTk):
             on_save_config=self._save_config,
             on_load_config=self.config_manager.load_config,
             on_audio_settings_changed=self._on_audio_settings_changed,
+            on_asr_mode_changed=self._on_asr_mode_changed,
         )
     
     def _process_logs(self):
@@ -132,16 +133,22 @@ class StratagemApp(ctk.CTk):
         """切换引擎状态"""
         if not self.engine_running:
             # 检查配置
-            if not self.config_manager.has_config():
-                self.log_manager.log("错误：请先在'设置'页面配置阿里云 API 密钥。")
-                return
+            asr_mode = self.settings_tab.get_asr_mode()
+            
+            if asr_mode == "aliyun":
+                if not self.config_manager.has_config():
+                    self.log_manager.log("错误：请先在'设置'页面配置阿里云 API 密钥。")
+                    return
+            # Vosk 模式不需要检查配置，会在启动时检查模型
             
             # 启动引擎
             self.engine.start()
             self.engine.set_dry_run(self.test_tab.dry_run_var.get())
             self.engine_running = True
             self.main_tab.set_button_state(True)
-            self.log_manager.log("已开始监听语音指令（阿里云实时识别）。")
+            
+            mode_name = "阿里云在线识别" if asr_mode == "aliyun" else "Vosk 离线识别"
+            self.log_manager.log(f"已开始监听语音指令（{mode_name}）。")
         else:
             # 停止引擎
             self.engine.stop()
@@ -224,9 +231,35 @@ class StratagemApp(ctk.CTk):
         
         # 同时记录到日志
         if status == "错误":
-            self.log_manager.log(f"❌ 阿里云服务错误：{error_msg}")
+            self.log_manager.log(f"❌ 服务错误：{error_msg}")
         elif status == "已连接":
-            self.log_manager.log("✅ 阿里云服务已连接")
+            mode_name = "阿里云" if self.settings_tab.get_asr_mode() == "aliyun" else "Vosk"
+            self.log_manager.log(f"✅ {mode_name} 服务已连接")
+    
+    def _on_asr_mode_changed(self, mode: str):
+        """ASR 模式改变回调"""
+        if mode == "aliyun":
+            # 切换到阿里云模式
+            config = self.config_manager.load_config()
+            if config:
+                audio_settings = self.settings_tab.get_audio_settings()
+                self.engine.set_credentials(
+                    config["app_key"],
+                    config["access_key_id"],
+                    config["access_key_secret"],
+                    enable_noise_suppression=audio_settings["noise_suppression"],
+                    enable_voice_detection=audio_settings["voice_detection"],
+                    enable_local_processing=audio_settings["local_processing"],
+                    on_status_callback=self._on_service_status_changed,
+                )
+                self.log_manager.log("已切换到阿里云在线识别模式")
+        else:
+            # 切换到 Vosk 模式
+            self.engine.set_vosk_model(
+                model_path="./vosk",
+                on_status_callback=self._on_service_status_changed,
+            )
+            self.log_manager.log("已切换到 Vosk 离线识别模式")
 
 
 if __name__ == "__main__":
