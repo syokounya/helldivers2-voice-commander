@@ -82,17 +82,21 @@ class VoskASREngine:
             # 延迟导入，避免没有安装 vosk 时报错
             import vosk
             
-            self._update_status("连接中", "", "正在加载 Vosk 离线模型...")
+            self._update_status("连接中", "", "正在加载 Vosk 离线模型，请稍候（约需 3-10 秒）...")
             
             if not self._check_model():
                 return False
             
-            # 加载模型
+            # 加载模型（这一步比较耗时）
+            import time
+            start_time = time.time()
             self._model = vosk.Model(self.model_path)
+            load_time = time.time() - start_time
+            
             self._recognizer = vosk.KaldiRecognizer(self._model, self.sample_rate)
             self._recognizer.SetWords(True)
             
-            self._update_status("已连接", "", "Vosk 离线识别已就绪")
+            self._update_status("已连接", "", f"Vosk 离线识别已就绪（加载耗时 {load_time:.1f} 秒）")
             return True
             
         except ImportError:
