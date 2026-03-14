@@ -104,14 +104,39 @@ class VoskASREngine:
                 "3. 重启程序"
             )
             return False
-        except Exception as e:
+        except AttributeError as e:
             self._update_status("错误",
-                f"加载模型失败: {str(e)}",
-                "可能原因：\n"
-                "1. 模型文件损坏\n"
-                "2. 模型版本不兼容\n"
-                "解决方案：重新下载模型并解压"
+                f"vosk 库版本不兼容: {str(e)}",
+                "解决方案：\n"
+                "1. 卸载旧版本: pip uninstall vosk\n"
+                "2. 安装最新版本: pip install vosk\n"
+                "3. 如果问题依然存在，尝试: pip install vosk --upgrade --force-reinstall\n"
+                "4. 重启程序"
             )
+            return False
+        except Exception as e:
+            error_msg = str(e)
+            if "model" in error_msg.lower() or "path" in error_msg.lower():
+                self._update_status("错误",
+                    f"加载模型失败: {error_msg}",
+                    "可能原因：\n"
+                    "1. 模型文件损坏或不完整\n"
+                    "2. 模型路径不正确\n"
+                    "3. 模型版本与 vosk 库不兼容\n"
+                    "解决方案：\n"
+                    "1. 重新下载模型: https://alphacephei.com/vosk/models\n"
+                    "2. 确保解压到正确位置（./vosk）\n"
+                    "3. 检查文件夹包含 am, conf, graph 等子文件夹"
+                )
+            else:
+                self._update_status("错误",
+                    f"加载模型失败: {error_msg}",
+                    "可能原因：未知错误\n"
+                    "解决方案：\n"
+                    "1. 检查 vosk 库是否正确安装\n"
+                    "2. 尝试重新安装: pip install vosk --upgrade\n"
+                    "3. 查看完整错误日志"
+                )
             return False
     
     def _audio_callback(self, indata, frames, time, status):
