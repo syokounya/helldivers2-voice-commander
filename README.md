@@ -49,7 +49,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/你的用户名/helldivers2-voice-commander.git
+git clone https://github.com/syokounya/helldivers2-voice-commander.git
 cd helldivers2-voice-commander
 
 # 安装依赖
@@ -201,7 +201,7 @@ A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_
 
 #### Method 1: Download Executable (Recommended)
 
-1. Go to [Releases](https://github.com/yourusername/helldivers2-voice-commander/releases)
+1. Go to [Releases](https://github.com/syokounya/helldivers2-voice-commander/releases)
 2. Download the latest `Helldivers2-Voice-Commander-vX.X.X.zip`
 3. Extract to any directory
 4. Run `Helldivers2-Voice-Commander.exe`
@@ -212,7 +212,7 @@ A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/helldivers2-voice-commander.git
+git clone https://github.com/syokounya/helldivers2-voice-commander.git
 cd helldivers2-voice-commander
 
 # Install dependencies
