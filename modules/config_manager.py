@@ -3,6 +3,8 @@
 """
 import json
 import base64
+import sys
+import os
 from pathlib import Path
 from typing import Optional, Dict
 from cryptography.fernet import Fernet
@@ -12,8 +14,19 @@ class ConfigManager:
     """管理阿里云 API 配置的加密存储"""
     
     def __init__(self, config_file: str = "config.enc"):
-        self.config_path = Path(__file__).parent / config_file
-        self.key_path = Path(__file__).parent / ".key"
+        # 获取正确的基础路径（支持 PyInstaller 打包）
+        if getattr(sys, 'frozen', False):
+            # 打包后的 exe 运行时
+            base_path = Path(sys.executable).parent / "modules"
+        else:
+            # 开发环境
+            base_path = Path(__file__).parent
+        
+        # 确保 modules 目录存在
+        base_path.mkdir(parents=True, exist_ok=True)
+        
+        self.config_path = base_path / config_file
+        self.key_path = base_path / ".key"
         self._ensure_key()
     
     def _ensure_key(self):
