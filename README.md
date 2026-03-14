@@ -247,7 +247,7 @@ A:
 ### 📞 联系方式
 
 - **GitHub Issues**: [提交问题](https://github.com/sykounya/helldivers2-voice-commander/issues)
-- **Email**: your.email@example.com
+- **Email**: 
 
 ### ⚠️ 免责声明
 
@@ -485,7 +485,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file
 ### 📞 Contact
 
 - **GitHub Issues**: [Submit Issue](https://github.com/yourusername/helldivers2-voice-commander/issues)
-- **Email**: your.email@example.com
+- **Email**: 
 
 ### ⚠️ Disclaimer
 
