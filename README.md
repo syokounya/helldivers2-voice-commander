@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**语音控制战备系统 | Voice-Controlled Stratagem System**
+**语音控制战备系统 | Voice-Controlled Stratagem System**（该readme由AI生成）
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
