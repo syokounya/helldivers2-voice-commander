@@ -38,7 +38,7 @@
 
 #### 方法 1：下载可执行文件（推荐）
 
-1. 前往 [Releases](https://github.com/你的用户名/helldivers2-voice-commander/releases) 页面
+1. 前往 [Releases](https://github.com/syokounya/helldivers2-voice-commander/releases) 页面
 2. 下载最新版本的 `Helldivers2-Voice-Commander-vX.X.X.zip`
 3. 解压到任意目录
 4. 运行 `Helldivers2-Voice-Commander.exe`
@@ -168,7 +168,7 @@ A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_
 
 ### 📞 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/你的用户名/helldivers2-voice-commander/issues)
+- **GitHub Issues**: [提交问题](https://github.com/sykounya/helldivers2-voice-commander/issues)
 - **Email**: your.email@example.com
 
 ### ⚠️ 免责声明
