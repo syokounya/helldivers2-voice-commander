@@ -490,6 +490,7 @@ class SettingsTab:
     
     def _clear_privacy_data(self):
         """清除隐私信息"""
+        import sys
         import os
         from pathlib import Path
         import tkinter.messagebox as messagebox
@@ -508,10 +509,18 @@ class SettingsTab:
         if not result:
             return
         
+        # 获取正确的路径（与 ConfigManager 一致）
+        if getattr(sys, 'frozen', False):
+            # 打包后的 exe 运行时
+            base_path = Path(sys.executable).parent / "modules"
+        else:
+            # 开发环境
+            base_path = Path(__file__).parent.parent / "modules"
+        
         # 删除文件
         files_to_delete = [
-            Path("modules/.key"),
-            Path("modules/config.enc"),
+            base_path / ".key",
+            base_path / "config.enc",
         ]
         
         deleted_files = []
