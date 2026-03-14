@@ -22,11 +22,14 @@
 
 ### ✨ 核心特性
 
-- 🎤 **实时语音识别** - 基于阿里云智能语音服务，识别准确快速
+- 🎤 **双模式语音识别** 
+  - ☁️ 阿里云在线识别 - 高准确率，需要网络连接
+  - 💾 Vosk 离线识别 - 完全离线，无需账号
 - 🎯 **智能匹配系统** - 支持模糊匹配、前缀匹配、拼音匹配
 - 🔄 **上下文感知** - 自动记忆最近使用的战备，智能切换相似战备
 - 🎨 **现代化 GUI** - 简洁美观的图形界面，支持窗口缩放
 - 🔊 **音频优化** - 内置降噪、回音消除、噪音门等音频处理
+- 📊 **实时状态监控** - 显示服务状态和详细错误分析
 - 🔒 **隐私保护** - 配置文件加密存储，支持一键清除隐私信息
 - ⚡ **轻量高效** - 低资源占用，不影响游戏性能
 
@@ -61,7 +64,65 @@ python main_modular.py
 
 ### ⚙️ 配置说明
 
-#### 1. 获取阿里云密钥
+#### 选择识别模式
+
+程序支持两种语音识别模式：
+
+##### 模式 1：阿里云在线识别（推荐）
+
+**优点**：
+- ✅ 识别准确率高
+- ✅ 支持云端降噪和语音检测
+- ✅ 无需下载额外文件
+
+**缺点**：
+- ❌ 需要网络连接
+- ❌ 需要阿里云账号
+
+**配置步骤**：
+
+1. 登录 [阿里云控制台](https://www.aliyun.com/)
+2. 开通"智能语音交互"服务
+3. 创建项目（项目类型：实时语音转写）
+4. 获取以下凭证：
+   - **APP KEY**
+   - **Access Key ID**
+   - **Access Key Secret**
+5. 在程序"设置"Tab 中选择"阿里云在线识别"
+6. 填写凭证并保存
+
+##### 模式 2：Vosk 离线识别
+
+**优点**：
+- ✅ 完全离线运行
+- ✅ 无需账号和网络
+- ✅ 隐私性更好
+
+**缺点**：
+- ❌ 识别准确率略低
+- ❌ 需要下载语音模型（约 50MB）
+
+**配置步骤**：
+
+1. 访问 [Vosk 模型下载页面](https://alphacephei.com/vosk/models)
+2. 下载中文模型：`vosk-model-cn-0.22`（推荐）
+3. 解压到程序目录下的 `./vosk` 文件夹
+4. 确保目录结构：
+   ```
+   程序根目录/
+   ├── vosk/
+   │   ├── am/
+   │   ├── conf/
+   │   ├── graph/
+   │   └── ivector/
+   └── main_modular.py
+   ```
+5. 在程序"设置"Tab 中选择"Vosk 离线识别"
+6. 点击"开始监听"即可使用
+
+详细说明请查看 [VOSK_README.md](VOSK_README.md)
+
+#### 1. 获取阿里云密钥（仅在线模式需要）
 
 1. 登录 [阿里云控制台](https://www.aliyun.com/)
 2. 开通"智能语音交互"服务
@@ -112,8 +173,9 @@ python main_modular.py
 - **操作系统**：Windows 10/11
 - **Python**：3.8 或更高版本（仅源码运行需要）
 - **麦克风**：任意麦克风设备
-- **网络**：需要连接互联网（调用阿里云 API）
+- **网络**：阿里云模式需要连接互联网，Vosk 模式完全离线
 - **内存**：建议 2GB 以上
+- **磁盘空间**：Vosk 模式需额外 50MB（模型文件）
 
 ### 📝 常见问题
 
@@ -141,7 +203,22 @@ A:
 
 #### Q: 支持其他语音识别服务吗？
 
-A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_asr.py`
+A: 目前支持阿里云在线识别和 Vosk 离线识别两种模式。如需其他服务，可以参考 `modules/aliyun_asr.py` 或 `modules/vosk_asr.py` 进行扩展。
+
+#### Q: Vosk 模式识别不准确？
+
+A:
+1. 确保下载了正确的中文模型（vosk-model-cn-0.22）
+2. 检查模型文件是否完整
+3. 尝试在安静环境下使用
+4. 如需更高准确率，建议使用阿里云在线模式
+
+#### Q: 提示"模型路径不存在"？
+
+A: 
+1. 确认 `vosk` 文件夹在程序根目录下
+2. 检查文件夹内是否包含 `am`, `conf`, `graph` 等子文件夹
+3. 参考 [VOSK_README.md](VOSK_README.md) 重新下载模型
 
 ### 🤝 贡献
 
@@ -162,6 +239,7 @@ A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_
 ### 🙏 致谢
 
 - [阿里云智能语音服务](https://www.aliyun.com/product/nls)
+- [Vosk 离线语音识别](https://alphacephei.com/vosk/)
 - [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)
 - [PyAudio](https://people.csail.mit.edu/hubert/pyaudio/)
 - [pynput](https://github.com/moses-palmer/pynput)
@@ -185,11 +263,14 @@ A: 目前仅支持阿里云。如需其他服务，可以修改 `modules/aliyun_
 
 ### ✨ Key Features
 
-- 🎤 **Real-time Speech Recognition** - Powered by Aliyun ASR, accurate and fast
+- 🎤 **Dual-Mode Speech Recognition**
+  - ☁️ Aliyun Online Recognition - High accuracy, requires internet
+  - 💾 Vosk Offline Recognition - Fully offline, no account needed
 - 🎯 **Smart Matching System** - Supports fuzzy matching, prefix matching, and pinyin matching
 - 🔄 **Context-Aware** - Remembers recently used stratagems, intelligently switches between similar ones
 - 🎨 **Modern GUI** - Clean and beautiful interface with window scaling support
 - 🔊 **Audio Optimization** - Built-in noise reduction, echo cancellation, and noise gate
+- 📊 **Real-time Status Monitoring** - Shows service status and detailed error analysis
 - 🔒 **Privacy Protection** - Encrypted configuration storage with one-click privacy clearing
 - ⚡ **Lightweight & Efficient** - Low resource usage, doesn't affect game performance
 
@@ -224,7 +305,65 @@ python main_modular.py
 
 ### ⚙️ Configuration
 
-#### 1. Get Aliyun Credentials
+#### Choose Recognition Mode
+
+The program supports two speech recognition modes:
+
+##### Mode 1: Aliyun Online Recognition (Recommended)
+
+**Pros**:
+- ✅ High recognition accuracy
+- ✅ Cloud-based noise reduction and voice detection
+- ✅ No additional downloads needed
+
+**Cons**:
+- ❌ Requires internet connection
+- ❌ Requires Aliyun account
+
+**Setup**:
+
+1. Login to [Aliyun Console](https://www.aliyun.com/)
+2. Enable "Intelligent Speech Interaction" service
+3. Create a project (Type: Real-time Speech Recognition)
+4. Get credentials:
+   - **APP KEY**
+   - **Access Key ID**
+   - **Access Key Secret**
+5. In program "Settings" tab, select "Aliyun Online Recognition"
+6. Fill in credentials and save
+
+##### Mode 2: Vosk Offline Recognition
+
+**Pros**:
+- ✅ Fully offline operation
+- ✅ No account or internet needed
+- ✅ Better privacy
+
+**Cons**:
+- ❌ Slightly lower accuracy
+- ❌ Requires downloading speech model (~50MB)
+
+**Setup**:
+
+1. Visit [Vosk Models Page](https://alphacephei.com/vosk/models)
+2. Download Chinese model: `vosk-model-cn-0.22` (recommended)
+3. Extract to `./vosk` folder in program directory
+4. Verify directory structure:
+   ```
+   Program Root/
+   ├── vosk/
+   │   ├── am/
+   │   ├── conf/
+   │   ├── graph/
+   │   └── ivector/
+   └── main_modular.py
+   ```
+5. In program "Settings" tab, select "Vosk Offline Recognition"
+6. Click "Start Listening"
+
+See [VOSK_README.md](VOSK_README.md) for details
+
+#### 1. Get Aliyun Credentials (Online Mode Only)
 
 1. Login to [Aliyun Console](https://www.aliyun.com/)
 2. Enable "Intelligent Speech Interaction" service
@@ -275,8 +414,9 @@ Full list: [stratagems.json](stratagems.json)
 - **OS**: Windows 10/11
 - **Python**: 3.8+ (only for running from source)
 - **Microphone**: Any microphone device
-- **Network**: Internet connection required (Aliyun API)
+- **Network**: Required for Aliyun mode, not needed for Vosk mode
 - **RAM**: 2GB+ recommended
+- **Disk Space**: Additional 50MB for Vosk model
 
 ### 📝 FAQ
 
@@ -300,7 +440,23 @@ A:
 A: 
 1. Click "Clear Privacy Data" in "Settings" tab
 2. Share the entire folder
-3. Receiver needs to configure their own Aliyun credentials
+3. Receiver needs to configure their own Aliyun credentials (if using online mode)
+4. For offline mode, include the `vosk` folder
+
+#### Q: Vosk mode not accurate?
+
+A:
+1. Ensure you downloaded the correct Chinese model (vosk-model-cn-0.22)
+2. Check if model files are complete
+3. Use in quiet environment
+4. For higher accuracy, use Aliyun online mode
+
+#### Q: "Model path not found" error?
+
+A:
+1. Confirm `vosk` folder is in program root directory
+2. Check if folder contains `am`, `conf`, `graph` subfolders
+3. Refer to [VOSK_README.md](VOSK_README.md) to re-download model
 
 ### 🤝 Contributing
 
@@ -321,6 +477,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file
 ### 🙏 Acknowledgments
 
 - [Aliyun Intelligent Speech Service](https://www.aliyun.com/product/nls)
+- [Vosk Offline Speech Recognition](https://alphacephei.com/vosk/)
 - [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter)
 - [PyAudio](https://people.csail.mit.edu/hubert/pyaudio/)
 - [pynput](https://github.com/moses-palmer/pynput)
