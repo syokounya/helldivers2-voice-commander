@@ -56,6 +56,7 @@ class StratagemApp(ctk.CTk):
                 enable_noise_suppression=audio_settings["noise_suppression"],
                 enable_voice_detection=audio_settings["voice_detection"],
                 enable_local_processing=audio_settings["local_processing"],
+                on_status_callback=self._on_service_status_changed,
             )
     
     def _build_ui(self):
@@ -192,6 +193,7 @@ class StratagemApp(ctk.CTk):
             enable_noise_suppression=audio_settings["noise_suppression"],
             enable_voice_detection=audio_settings["voice_detection"],
             enable_local_processing=audio_settings["local_processing"],
+            on_status_callback=self._on_service_status_changed,
         )
         self.log_manager.log("阿里云配置已保存并应用。")
     
@@ -211,6 +213,20 @@ class StratagemApp(ctk.CTk):
         # 如果引擎正在运行，需要重启才能应用新设置
         if self.engine_running:
             self.log_manager.log("提示：请重新启动监听以应用新的音频设置。")
+    
+    def _on_service_status_changed(self, status: str, error_msg: str, analysis: str):
+        """阿里云服务状态改变回调"""
+        self.after(0, self._update_service_status_ui, status, error_msg, analysis)
+    
+    def _update_service_status_ui(self, status: str, error_msg: str, analysis: str):
+        """更新服务状态 UI（在主线程中）"""
+        self.main_tab.update_service_status(status, error_msg, analysis)
+        
+        # 同时记录到日志
+        if status == "错误":
+            self.log_manager.log(f"❌ 阿里云服务错误：{error_msg}")
+        elif status == "已连接":
+            self.log_manager.log("✅ 阿里云服务已连接")
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ class AliyunASREngine:
         access_key_secret: str,
         sample_rate: int = 16000,
         on_result_callback: Optional[Callable[[str, bool], None]] = None,
+        on_status_callback: Optional[Callable[[str, str, str], None]] = None,
         enable_noise_suppression: bool = True,
         enable_voice_detection: bool = True,
         enable_local_processing: bool = True,
@@ -32,6 +33,7 @@ class AliyunASREngine:
         self.access_key_secret = access_key_secret
         self.sample_rate = sample_rate
         self.on_result_callback = on_result_callback
+        self.on_status_callback = on_status_callback
         self.enable_noise_suppression = enable_noise_suppression
         self.enable_voice_detection = enable_voice_detection
         self.enable_local_processing = enable_local_processing
@@ -41,6 +43,11 @@ class AliyunASREngine:
         self._ws: Optional[websocket.WebSocketApp] = None
         self._audio_stream = None
         self._token = None
+        
+        # 状态管理
+        self._status = "未连接"  # 未连接, 连接中, 已连接, 错误
+        self._error_message = ""
+        self._error_analysis = ""
         
         # 本地音频处理器
         if enable_local_processing:
@@ -58,6 +65,14 @@ class AliyunASREngine:
             self.audio_processor = None
             self.vad = None
     
+    def _update_status(self, status: str, error_msg: str = "", analysis: str = ""):
+        """更新状态并通知回调"""
+        self._status = status
+        self._error_message = error_msg
+        self._error_analysis = analysis
+        if self.on_status_callback:
+            self.on_status_callback(status, error_msg, analysis)
+    
     def _get_token(self) -> str:
         """获取阿里云 Token"""
         import hmac
@@ -65,6 +80,8 @@ class AliyunASREngine:
         import base64
         from datetime import datetime
         from urllib.parse import quote
+        
+        self._update_status("连接中", "", "正在获取阿里云访问令牌...")
         
         # 构建请求参数
         timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -113,16 +130,61 @@ class AliyunASREngine:
                     print(f"成功获取 Token: {token[:20]}...")
                     return token
                 else:
-                    print(f"响应中没有 Token: {result}")
+                    error_msg = f"响应中没有 Token: {result}"
+                    self._update_status("错误", error_msg, 
+                        "可能原因：AccessKeyId 或 AccessKeySecret 不正确\n"
+                        "解决方案：请在阿里云控制台检查 RAM 访问控制中的密钥")
+                    print(error_msg)
             else:
+                error_msg = f"HTTP {response.status_code}: {response.text}"
+                analysis = self._analyze_token_error(response.status_code, response.text)
+                self._update_status("错误", error_msg, analysis)
                 print(f"获取 Token 失败，状态码: {response.status_code}")
                 print(f"错误信息: {response.text}")
             return None
+        except requests.exceptions.Timeout:
+            error_msg = "请求超时"
+            self._update_status("错误", error_msg,
+                "可能原因：网络连接不稳定或阿里云服务响应慢\n"
+                "解决方案：检查网络连接，稍后重试")
+            print(f"获取 Token 出错：{error_msg}")
+            return None
+        except requests.exceptions.ConnectionError:
+            error_msg = "无法连接到阿里云服务器"
+            self._update_status("错误", error_msg,
+                "可能原因：网络未连接或防火墙阻止\n"
+                "解决方案：检查网络连接和防火墙设置")
+            print(f"获取 Token 出错：{error_msg}")
+            return None
         except Exception as e:
+            error_msg = str(e)
+            self._update_status("错误", error_msg,
+                "可能原因：未知错误\n"
+                "解决方案：查看日志详情，联系技术支持")
             print(f"获取 Token 出错：{e}")
             import traceback
             traceback.print_exc()
             return None
+    
+    def _analyze_token_error(self, status_code: int, response_text: str) -> str:
+        """分析 Token 获取错误"""
+        if status_code == 400:
+            return ("可能原因：请求参数格式错误\n"
+                   "解决方案：检查 AccessKeyId 和 AccessKeySecret 格式是否正确")
+        elif status_code == 401 or status_code == 403:
+            return ("可能原因：AccessKeyId 或 AccessKeySecret 不正确，或权限不足\n"
+                   "解决方案：\n"
+                   "1. 在阿里云控制台 → RAM 访问控制 → 用户 中检查密钥\n"
+                   "2. 确保该用户有智能语音交互服务的权限\n"
+                   "3. 尝试重新创建 AccessKey")
+        elif status_code == 404:
+            return ("可能原因：API 端点不存在\n"
+                   "解决方案：检查区域设置是否正确（当前：cn-shanghai）")
+        elif status_code >= 500:
+            return ("可能原因：阿里云服务器错误\n"
+                   "解决方案：稍后重试，或查看阿里云服务状态")
+        else:
+            return f"HTTP 错误码 {status_code}\n解决方案：查看错误详情或联系技术支持"
     
     def _build_ws_url(self) -> str:
         """构建 WebSocket URL"""
@@ -143,6 +205,8 @@ class AliyunASREngine:
         """WebSocket 连接建立"""
         print(f"WebSocket 连接已建立，准备发送开始识别指令...")
         print(f"使用的 APP KEY: {self.app_key[:10]}...")
+        
+        self._update_status("连接中", "", "WebSocket 已连接，正在初始化识别服务...")
         
         # 生成符合阿里云要求的 ID（去掉连字符）
         message_id = str(uuid.uuid4()).replace('-', '')
@@ -173,6 +237,8 @@ class AliyunASREngine:
         print(f"发送开始识别指令: {json.dumps(start_msg, ensure_ascii=False)}")
         ws.send(json.dumps(start_msg))
         
+        self._update_status("已连接", "", "语音识别服务运行中")
+        
         # 启动音频发送线程
         threading.Thread(target=self._send_audio, args=(ws,), daemon=True).start()
     
@@ -189,9 +255,10 @@ class AliyunASREngine:
             # 检查错误
             if status and status != 20000000:
                 status_text = header.get("status_text", "")
-                print(f"识别错误 - 状态码: {status}, 错误信息: {status_text}")
-                if status == 40000002:
-                    print("错误：APP KEY 不正确！请检查智能语音交互控制台中的项目 AppKey")
+                error_msg = f"状态码 {status}: {status_text}"
+                analysis = self._analyze_ws_error(status, status_text)
+                self._update_status("错误", error_msg, analysis)
+                print(f"识别错误 - {error_msg}")
                 return
             
             if name == "TranscriptionResultChanged":
@@ -209,7 +276,65 @@ class AliyunASREngine:
                     self.on_result_callback(text, True)
         
         except Exception as e:
+            error_msg = f"解析消息失败: {str(e)}"
+            self._update_status("错误", error_msg, 
+                "可能原因：服务器返回了非预期的数据格式\n"
+                "解决方案：查看日志详情，可能需要更新程序")
             print(f"解析识别结果出错：{e}")
+    
+    def _analyze_ws_error(self, status_code: int, status_text: str) -> str:
+        """分析 WebSocket 错误"""
+        error_map = {
+            40000002: (
+                "AppKey 不正确\n"
+                "解决方案：\n"
+                "1. 登录阿里云控制台\n"
+                "2. 进入 智能语音交互 → 项目管理\n"
+                "3. 查看或创建项目，复制正确的 AppKey\n"
+                "4. 注意：AppKey 不是 AccessKeyId"
+            ),
+            40020105: (
+                "AppKey 不存在\n"
+                "可能原因：\n"
+                "1. AppKey 输入错误（多/少字符或有空格）\n"
+                "2. 项目已被删除或禁用\n"
+                "3. 区域不匹配（当前使用 cn-shanghai）\n"
+                "解决方案：\n"
+                "1. 登录阿里云控制台\n"
+                "2. 进入 智能语音交互 → 项目管理\n"
+                "3. 确认项目存在且状态正常\n"
+                "4. 重新复制完整的 AppKey（注意去除空格）\n"
+                "5. 在程序设置中重新填写并保存"
+            ),
+            40000003: (
+                "Token 无效或已过期\n"
+                "解决方案：程序会自动重新获取 Token，请重启监听"
+            ),
+            40000004: (
+                "请求参数错误\n"
+                "解决方案：检查音频格式设置（当前：PCM 16kHz）"
+            ),
+            40000005: (
+                "服务未开通或欠费\n"
+                "解决方案：\n"
+                "1. 检查阿里云账户余额\n"
+                "2. 确认已开通智能语音交互服务\n"
+                "3. 查看服务是否在有效期内"
+            ),
+            40000006: (
+                "并发超限\n"
+                "解决方案：当前有其他程序在使用该服务，请稍后重试"
+            ),
+            40000007: (
+                "流量超限\n"
+                "解决方案：今日使用量已达上限，请明天再试或升级套餐"
+            ),
+        }
+        
+        if status_code in error_map:
+            return error_map[status_code]
+        else:
+            return f"未知错误码 {status_code}\n错误信息：{status_text}\n解决方案：查看阿里云文档或联系技术支持"
     
     def _on_ws_error(self, ws, error):
         """WebSocket 错误"""
@@ -220,6 +345,15 @@ class AliyunASREngine:
         if 'opcode=8' in error_str:
             # WebSocket 关闭帧
             if '40000002' in error_str or b'40000002' in str(error).encode():
+                error_msg = "AppKey 不正确"
+                analysis = (
+                    "解决方案：\n"
+                    "1. 在阿里云控制台 → 智能语音交互 → 项目管理\n"
+                    "2. 查看或创建项目\n"
+                    "3. 复制正确的 AppKey（不是 AccessKey）\n"
+                    "4. 在程序的'设置'Tab 中重新填写并保存"
+                )
+                self._update_status("错误", error_msg, analysis)
                 print("=" * 60)
                 print("错误：APP KEY 不正确！")
                 print("请检查：")
@@ -228,10 +362,23 @@ class AliyunASREngine:
                 print("3. 复制正确的 AppKey（不是 AccessKey）")
                 print("4. 在程序的'设置'Tab 中重新填写并保存")
                 print("=" * 60)
+            else:
+                self._update_status("错误", error_str, 
+                    "WebSocket 连接异常\n解决方案：检查网络连接，稍后重试")
+        else:
+            self._update_status("错误", error_str,
+                "可能原因：网络不稳定或服务器异常\n解决方案：检查网络连接，稍后重试")
     
     def _on_ws_close(self, ws, close_status_code, close_msg):
         """WebSocket 关闭"""
         print(f"WebSocket 连接已关闭 - 状态码: {close_status_code}, 消息: {close_msg}")
+        if self._running:
+            # 非正常关闭
+            self._update_status("错误", f"连接意外关闭: {close_msg}",
+                "可能原因：网络中断或服务器主动断开\n解决方案：重新启动监听")
+        else:
+            # 正常关闭
+            self._update_status("未连接", "", "")
     
     def _send_audio(self, ws):
         """持续发送音频数据"""

@@ -80,7 +80,8 @@ class StratagemEngine:
     def set_credentials(self, app_key: str, access_key_id: str, access_key_secret: str,
                         enable_noise_suppression: bool = True,
                         enable_voice_detection: bool = True,
-                        enable_local_processing: bool = True):
+                        enable_local_processing: bool = True,
+                        on_status_callback: Optional[Callable[[str, str, str], None]] = None):
         """设置阿里云凭证"""
         self._asr_engine = AliyunASREngine(
             app_key=app_key,
@@ -88,6 +89,7 @@ class StratagemEngine:
             access_key_secret=access_key_secret,
             sample_rate=16000,
             on_result_callback=self._on_asr_result,
+            on_status_callback=on_status_callback,
             enable_noise_suppression=enable_noise_suppression,
             enable_voice_detection=enable_voice_detection,
             enable_local_processing=enable_local_processing,

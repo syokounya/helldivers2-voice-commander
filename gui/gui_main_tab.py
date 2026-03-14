@@ -57,6 +57,8 @@ class MainTab:
         self.global_command_vars: Dict[str, ctk.BooleanVar] = {}
         self.toggle_button: ctk.CTkButton = None
         self.log_text: ctk.CTkTextbox = None
+        self.status_label: ctk.CTkLabel = None
+        self.status_detail_text: ctk.CTkTextbox = None
         
         self._build()
     
@@ -100,7 +102,7 @@ class MainTab:
         # 右侧：控制和日志区域
         right_frame = ctk.CTkFrame(main_container, fg_color="#111111")
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        right_frame.grid_rowconfigure(1, weight=1)
+        right_frame.grid_rowconfigure(3, weight=1)
         right_frame.grid_columnconfigure(0, weight=1)
         
         # 控制按钮
@@ -116,6 +118,42 @@ class MainTab:
         )
         self.toggle_button.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         
+        # 阿里云服务状态区域
+        status_frame = ctk.CTkFrame(right_frame, fg_color="#1a1a1a", corner_radius=8)
+        status_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        status_frame.grid_columnconfigure(1, weight=1)
+        
+        status_title = ctk.CTkLabel(
+            status_frame,
+            text="阿里云服务状态：",
+            text_color="#FFFFFF",
+            anchor="w",
+            font=("Arial", 11, "bold"),
+        )
+        status_title.grid(row=0, column=0, sticky="w", padx=10, pady=8)
+        
+        self.status_label = ctk.CTkLabel(
+            status_frame,
+            text="● 未连接",
+            text_color="#888888",
+            anchor="w",
+            font=("Arial", 11, "bold"),
+        )
+        self.status_label.grid(row=0, column=1, sticky="w", padx=5, pady=8)
+        
+        # 状态详情（可折叠）
+        self.status_detail_text = ctk.CTkTextbox(
+            status_frame,
+            wrap="word",
+            fg_color="#0a0a0a",
+            text_color="#FF6B6B",
+            font=("Consolas", 9),
+            height=80,
+        )
+        self.status_detail_text.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
+        self.status_detail_text.configure(state="disabled")
+        self.status_detail_text.grid_remove()  # 默认隐藏
+        
         # 日志区域
         log_label = ctk.CTkLabel(
             right_frame,
@@ -124,7 +162,7 @@ class MainTab:
             anchor="w",
             font=("Arial", 12, "bold"),
         )
-        log_label.grid(row=1, column=0, sticky="w", padx=10, pady=(10, 5))
+        log_label.grid(row=2, column=0, sticky="w", padx=10, pady=(10, 5))
         
         self.log_text = ctk.CTkTextbox(
             right_frame,
@@ -133,11 +171,11 @@ class MainTab:
             text_color="#FFFFFF",
             font=("Consolas", 10),
         )
-        self.log_text.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.log_text.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.log_text.configure(state="disabled")
         
         # 配置右侧框架的行权重
-        right_frame.grid_rowconfigure(2, weight=1)
+        right_frame.grid_rowconfigure(3, weight=1)
     
     def _build_global_commands(self, parent):
         """构建全局指令区域"""
@@ -340,3 +378,32 @@ class MainTab:
             self.toggle_button.configure(text="停止监听", fg_color="#a62f2f")
         else:
             self.toggle_button.configure(text="开始监听", fg_color="#FFD700")
+    
+    def update_service_status(self, status: str, error_msg: str = "", analysis: str = "") -> None:
+        """更新阿里云服务状态显示"""
+        # 状态颜色映射
+        status_colors = {
+            "未连接": "#888888",
+            "连接中": "#FFA500",
+            "已连接": "#00FF00",
+            "错误": "#FF0000",
+        }
+        
+        color = status_colors.get(status, "#888888")
+        self.status_label.configure(text=f"● {status}", text_color=color)
+        
+        # 显示或隐藏详情
+        if error_msg or analysis:
+            detail_text = ""
+            if error_msg:
+                detail_text += f"错误信息：{error_msg}\n\n"
+            if analysis:
+                detail_text += f"{analysis}"
+            
+            self.status_detail_text.configure(state="normal")
+            self.status_detail_text.delete("1.0", "end")
+            self.status_detail_text.insert("1.0", detail_text)
+            self.status_detail_text.configure(state="disabled")
+            self.status_detail_text.grid()  # 显示
+        else:
+            self.status_detail_text.grid_remove()  # 隐藏
