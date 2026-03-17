@@ -56,11 +56,9 @@ class StratagemMatcher:
         
         context_boost = context_boost or {}
         
-        # 0) 最优先：别名精确匹配
+        # 0) 别名转换：如果识别文本是别名，转换为目标战备名
         if text in self.aliases:
-            alias_target = self.aliases[text]
-            if alias_target in candidates:
-                return alias_target
+            text = self.aliases[text]
         
         # 1) 精确匹配
         if text in candidates:
