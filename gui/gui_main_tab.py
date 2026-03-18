@@ -31,7 +31,7 @@ class MainTab:
 
         # 从 StratagemManager 加载分类数据（JSON 驱动，不硬编码）
         if stratagem_manager and hasattr(stratagem_manager, 'categories') and stratagem_manager.categories:
-            self.STRATAGEM_CATEGORIES = stratagem_manager.categories
+            self.STRATAGEM_CATEGORIES = stratagem_manager.categories  # 直接引用同一对象
         else:
             self.STRATAGEM_CATEGORIES = {}
         

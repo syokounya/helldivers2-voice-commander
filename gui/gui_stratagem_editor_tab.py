@@ -7,11 +7,6 @@ import json
 from pynput import keyboard as pynput_keyboard
 
 
-# 模块级分类字典 —— 由 StratagemManager 在运行时填充，不硬编码任何战备名
-STRATAGEM_CATEGORIES: Dict[str, List[str]] = {}
-GLOBAL_CATEGORY: str = "任务类"
-
-
 class StratagemEditorTab:
     def __init__(self, parent, stratagem_names, json_path="stratagems.json",
                  on_save_callback=None, stratagem_manager=None):
@@ -40,18 +35,20 @@ class StratagemEditorTab:
         self.record_btn = None
         self.status_label = None
         self._load_data()
-        # 用 StratagemManager 的分类数据初始化模块级字典（零硬编码）
-        self._sync_categories_from_manager()
         self._build()
 
-    def _sync_categories_from_manager(self):
-        """从 StratagemManager 同步分类数据到模块级 STRATAGEM_CATEGORIES"""
-        global STRATAGEM_CATEGORIES, GLOBAL_CATEGORY
-        if self.stratagem_manager and hasattr(self.stratagem_manager, 'categories') \
-                and self.stratagem_manager.categories:
-            STRATAGEM_CATEGORIES.clear()
-            STRATAGEM_CATEGORIES.update(self.stratagem_manager.categories)
-            GLOBAL_CATEGORY = self.stratagem_manager.global_category
+    @property
+    def _cats(self) -> Dict[str, List[str]]:
+        """始终返回 StratagemManager.categories（单一数据源）"""
+        if self.stratagem_manager and hasattr(self.stratagem_manager, 'categories'):
+            return self.stratagem_manager.categories
+        return {}
+
+    @property
+    def _global_cat(self) -> str:
+        if self.stratagem_manager and hasattr(self.stratagem_manager, 'global_category'):
+            return self.stratagem_manager.global_category
+        return "任务类"
 
     def _load_data(self):
         try:
@@ -62,9 +59,8 @@ class StratagemEditorTab:
 
     def _save_data(self):
         try:
-            # 把当前分类数据也写回 JSON
-            self.data['categories'] = {k: list(v) for k, v in STRATAGEM_CATEGORIES.items()}
-            self.data['global_category'] = GLOBAL_CATEGORY
+            self.data['categories'] = {k: list(v) for k, v in self._cats.items()}
+            self.data['global_category'] = self._global_cat
             with open(self.json_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
             if self.on_save_callback:
@@ -74,7 +70,7 @@ class StratagemEditorTab:
             self._set_status(f"保存失败: {e}", "#F44336")
 
     def _get_category_for(self, name: str) -> str:
-        for cat, members in STRATAGEM_CATEGORIES.items():
+        for cat, members in self._cats.items():
             if name in members:
                 return cat
         return "未分类"
@@ -82,14 +78,14 @@ class StratagemEditorTab:
     def _get_items_in_category(self, category: str) -> List[str]:
         stratagems = self.data.get("stratagems", {})
         if category == "未分类":
-            known = set(n for names in STRATAGEM_CATEGORIES.values() for n in names)
+            known = set(n for names in self._cats.values() for n in names)
             return [n for n in stratagems if n not in known]
-        return [n for n in STRATAGEM_CATEGORIES.get(category, []) if n in stratagems]
+        return [n for n in self._cats.get(category, []) if n in stratagems]
 
     def _all_category_names(self) -> List[str]:
-        cats = list(STRATAGEM_CATEGORIES.keys())
+        cats = list(self._cats.keys())
         stratagems = self.data.get("stratagems", {})
-        known = set(n for names in STRATAGEM_CATEGORIES.values() for n in names)
+        known = set(n for names in self._cats.values() for n in names)
         if any(n not in known for n in stratagems):
             if "未分类" not in cats:
                 cats.append("未分类")
@@ -149,7 +145,7 @@ class StratagemEditorTab:
         ctk.CTkLabel(self.target_cat_frame, text="添加到分类:",
                      text_color="#AAAAAA", font=("Microsoft YaHei", 11)).pack(side="left", padx=(0, 10))
         self.target_cat_menu = ctk.CTkOptionMenu(self.target_cat_frame,
-            values=list(STRATAGEM_CATEGORIES.keys()), width=160,
+            values=list(self._cats.keys()) or ["未分类"], width=160,
             fg_color="#2a2a2a", button_color="#FFD700", button_hover_color="#FFDD55",
             text_color="#FFFFFF", dropdown_fg_color="#2a2a2a",
             dropdown_text_color="#FFFFFF", font=("Microsoft YaHei", 11))
@@ -199,8 +195,6 @@ class StratagemEditorTab:
         self.status_label.pack(side="left")
         self._on_category_selected(all_cats[0])
 
-    # ─── 模式切换 ───
-
     def _switch_mode(self, mode: str):
         self.edit_mode = mode
         self._stop_recording()
@@ -224,8 +218,6 @@ class StratagemEditorTab:
             aliases = list(self.data.get("aliases", {}).keys())
             self.item_menu.configure(values=["── 新增别名 ──"] + aliases)
             self.item_menu.set("── 新增别名 ──")
-
-    # ─── 选择事件 ───
 
     def _on_category_selected(self, category: str):
         items = self._get_items_in_category(category)
@@ -251,8 +243,6 @@ class StratagemEditorTab:
             self.alias_target_menu.configure(values=all_war if all_war else ["无"])
             if target in all_war:
                 self.alias_target_menu.set(target)
-
-    # ─── 键盘录制 ───
 
     def _on_record_toggle(self):
         if self.is_recording:
@@ -307,18 +297,15 @@ class StratagemEditorTab:
         self.recorded_keys = []
         self._update_keys_display()
 
-    # ─── 增删改 ───
-
     def _on_new(self):
         self._stop_recording()
         self._clear_form()
         if self.edit_mode == "战备":
-            self.target_cat_menu.configure(values=list(STRATAGEM_CATEGORIES.keys()))
-            self.target_cat_menu.set(self.category_menu.get()
-                                     if self.category_menu.get() != "未分类"
-                                     else list(STRATAGEM_CATEGORIES.keys())[0])
-            self.target_cat_frame.pack(fill="x", padx=15, pady=(0, 15),
-                                       before=self.keys_frame)
+            cats = list(self._cats.keys())
+            self.target_cat_menu.configure(values=cats)
+            cur = self.category_menu.get()
+            self.target_cat_menu.set(cur if cur != "未分类" and cur in cats else (cats[0] if cats else "未分类"))
+            self.target_cat_frame.pack(fill="x", padx=15, pady=(0, 15), before=self.keys_frame)
         self._set_status("请输入名称并录制指令", "#2196F3")
 
     def _on_save(self):
@@ -332,21 +319,19 @@ class StratagemEditorTab:
                 return
             is_new = not self.current_item_name
             old_name = self.current_item_name
-            # 重命名：在分类字典中替换名称
             if old_name and old_name != name:
                 old_cat = self._get_category_for(old_name)
-                if old_cat != "未分类" and old_name in STRATAGEM_CATEGORIES.get(old_cat, []):
-                    idx = STRATAGEM_CATEGORIES[old_cat].index(old_name)
-                    STRATAGEM_CATEGORIES[old_cat][idx] = name
+                if old_cat != "未分类" and old_name in self._cats.get(old_cat, []):
+                    idx = self._cats[old_cat].index(old_name)
+                    self._cats[old_cat][idx] = name
                 self.data["stratagems"].pop(old_name, None)
-            # 新增：加入用户选择的目标分类
             if is_new:
                 tgt = (self.target_cat_menu.get()
                        if self.target_cat_frame.winfo_ismapped()
                        else self.category_menu.get())
                 if tgt and tgt != "未分类":
-                    if name not in STRATAGEM_CATEGORIES.get(tgt, []):
-                        STRATAGEM_CATEGORIES.setdefault(tgt, []).append(name)
+                    if name not in self._cats.get(tgt, []):
+                        self._cats.setdefault(tgt, []).append(name)
             self.data.setdefault("stratagems", {})[name] = self.recorded_keys
             self._save_data()
             self.current_item_name = name
@@ -379,8 +364,8 @@ class StratagemEditorTab:
             return
         if self.edit_mode == "战备":
             old_cat = self._get_category_for(self.current_item_name)
-            if old_cat != "未分类" and self.current_item_name in STRATAGEM_CATEGORIES.get(old_cat, []):
-                STRATAGEM_CATEGORIES[old_cat].remove(self.current_item_name)
+            if old_cat != "未分类" and self.current_item_name in self._cats.get(old_cat, []):
+                self._cats[old_cat].remove(self.current_item_name)
             self.data.get("stratagems", {}).pop(self.current_item_name, None)
             self._save_data()
             all_cats = self._all_category_names()
@@ -392,8 +377,6 @@ class StratagemEditorTab:
             aliases = list(self.data.get("aliases", {}).keys())
             self.item_menu.configure(values=["── 新增别名 ──"] + aliases)
         self._clear_form()
-
-    # ─── 辅助 ───
 
     def _clear_form(self):
         self.current_item_name = None
