@@ -39,6 +39,9 @@ modules/config.enc
 # Vosk 离线模型（体积大，用户自行下载）
 vosk/
 
+# 非 README 的 md 文档
+VOSK_README.md
+
 # 日志
 *.log
 
