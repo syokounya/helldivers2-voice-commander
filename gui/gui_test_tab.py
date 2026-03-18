@@ -54,7 +54,7 @@ class TestTab:
             button_hover_color="#FFDD55",
             text_color="#000000",
         )
-        test_menu.grid(row=0, column=1, padx=10, pady=5, sticky="w")
+        self.test_menu.grid(row=0, column=1, padx=10, pady=5, sticky="w")
         
         test_button = ctk.CTkButton(
             container,
