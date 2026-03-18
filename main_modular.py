@@ -265,6 +265,14 @@ class StratagemApp(ctk.CTk):
         # 重新加载战备数据
         self.stratagem_manager.load_stratagems()
         
+        # 同步 matcher 的 aliases
+        self.engine.matcher.aliases = self.stratagem_manager.aliases
+        
+        # 刷新主界面和测试界面的战备列表（让新战备可被选入槽位）
+        all_names = self.stratagem_manager.get_all_names()
+        self.main_tab.refresh_stratagem_names(all_names)
+        self.test_tab.refresh_stratagem_names(all_names)
+        
         # 如果引擎正在运行，重启监听使新数据立即生效
         if self.engine_running:
             self.engine.stop()

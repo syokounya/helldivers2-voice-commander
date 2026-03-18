@@ -45,7 +45,7 @@ class TestTab:
         
         self.test_var = ctk.StringVar(value=self.stratagem_names[0] if self.stratagem_names else "")
         
-        test_menu = ctk.CTkOptionMenu(
+        self.test_menu = ctk.CTkOptionMenu(
             container,
             variable=self.test_var,
             values=self.stratagem_names,
@@ -217,3 +217,11 @@ class TestTab:
             pass
         
         self.log_text.configure(state="disabled")
+
+    def refresh_stratagem_names(self, names: List[str]) -> None:
+        """热更新战备列表"""
+        self.stratagem_names = sorted(names)
+        if self.test_menu:
+            self.test_menu.configure(values=self.stratagem_names)
+            if self.test_var.get() not in self.stratagem_names and self.stratagem_names:
+                self.test_var.set(self.stratagem_names[0])

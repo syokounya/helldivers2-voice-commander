@@ -407,3 +407,16 @@ class MainTab:
             self.status_detail_text.grid()  # 显示
         else:
             self.status_detail_text.grid_remove()  # 隐藏
+
+    def refresh_stratagem_names(self, names: List[str]) -> None:
+        """热更新战备名称列表，将不在已有分类中的战备加入未分类"""
+        all_categorized = set(
+            item
+            for items in self.STRATAGEM_CATEGORIES.values()
+            for item in items
+        )
+        uncategorized = [n for n in names if n not in all_categorized]
+        if uncategorized:
+            self.STRATAGEM_CATEGORIES["未分类"] = uncategorized
+        elif "未分类" in self.STRATAGEM_CATEGORIES:
+            del self.STRATAGEM_CATEGORIES["未分类"]
