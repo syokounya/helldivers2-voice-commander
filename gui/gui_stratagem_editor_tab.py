@@ -7,40 +7,19 @@ import json
 from pynput import keyboard as pynput_keyboard
 
 
-STRATAGEM_CATEGORIES: Dict[str, List[str]] = {
-    "任务类": ["增援", "补给", "SOS求救信标", "飞鹰整备", "呼叫超级驱逐舰",
-              "地层钻机", "虫巢破坏者钻机", "地震探测器", "超级地球旗帜",
-              "勘探钻机", "超级硬盘", "SEAF火炮", "上传数据", "增援舱",
-              "货物集装箱", "地狱火炸弹"],
-    "背包类": ["补给背包", "喷气背包", "防弹盾", "实弹狗", "激光狗", "护盾背包",
-              "定向护盾", "热狗", "地狱火背包", "电弧狗", "悬浮背包", "毒气狗", "传送背包"],
-    "载具类": ["爱国者机甲", "解放者机甲", "快速侦察车", "堡垒主战坦克"],
-    "地雷类": ["反步兵地雷", "燃烧地雷", "反坦克地雷", "毒气地雷"],
-    "防御建筑": ["护盾发生器中继站", "重机枪支架", "榴弹墙", "反坦克炮"],
-    "哨戒炮": ["机枪哨戒炮", "加特林哨戒炮", "砰砰炮", "迫击炮", "火箭哨戒炮",
-              "特斯拉电塔", "电磁迫击炮", "激光哨戒炮", "喷火哨戒炮"],
-    "轨道打击": ["轨道精准打击", "轨道加特林", "轨道毒气", "轨道120mm火力网",
-               "轨道空爆", "轨道烟幕", "轨道静电", "轨道380mm火力网",
-               "轨道游走火力网", "轨道激光", "轨道燃烧弹", "轨道炮"],
-    "飞鹰打击": ["飞鹰机枪扫射", "飞鹰空袭", "飞鹰集束炸弹", "飞鹰烟幕",
-               "飞鹰燃烧弹", "飞鹰火箭巢", "飞鹰500kg炸弹"],
-    "支援武器": ["电弧发射器", "类星体", "空爆火箭发射器", "突击兵", "飞矛",
-               "磁轨炮", "黄蜂发射器", "纪元", "大锤", "毒矛枪", "燃烧次抛",
-               "灭菌器", "除叶工具", "电榴弹", "荡平者", "C4炸药包", "导弹发射井",
-               "弹链榴弹发射器", "重装加特林", "唯一真旗", "通用机枪", "反坦克次抛",
-               "盟友机枪", "激光大炮", "反器材步枪", "无后坐力炮", "榴弹发射器",
-               "喷火器", "重机枪", "机炮"],
-}
-GLOBAL_CATEGORY = "任务类"
+# 模块级分类字典 —— 由 StratagemManager 在运行时填充，不硬编码任何战备名
+STRATAGEM_CATEGORIES: Dict[str, List[str]] = {}
+GLOBAL_CATEGORY: str = "任务类"
 
 
 class StratagemEditorTab:
     def __init__(self, parent, stratagem_names, json_path="stratagems.json",
-                 on_save_callback=None):
+                 on_save_callback=None, stratagem_manager=None):
         self.parent = parent
         self.stratagem_names = stratagem_names
         self.json_path = json_path
         self.on_save_callback = on_save_callback
+        self.stratagem_manager = stratagem_manager
         self.data: Dict = {}
         self.current_item_name: Optional[str] = None
         self.edit_mode: str = "战备"
@@ -61,7 +40,18 @@ class StratagemEditorTab:
         self.record_btn = None
         self.status_label = None
         self._load_data()
+        # 用 StratagemManager 的分类数据初始化模块级字典（零硬编码）
+        self._sync_categories_from_manager()
         self._build()
+
+    def _sync_categories_from_manager(self):
+        """从 StratagemManager 同步分类数据到模块级 STRATAGEM_CATEGORIES"""
+        global STRATAGEM_CATEGORIES, GLOBAL_CATEGORY
+        if self.stratagem_manager and hasattr(self.stratagem_manager, 'categories') \
+                and self.stratagem_manager.categories:
+            STRATAGEM_CATEGORIES.clear()
+            STRATAGEM_CATEGORIES.update(self.stratagem_manager.categories)
+            GLOBAL_CATEGORY = self.stratagem_manager.global_category
 
     def _load_data(self):
         try:
@@ -72,6 +62,9 @@ class StratagemEditorTab:
 
     def _save_data(self):
         try:
+            # 把当前分类数据也写回 JSON
+            self.data['categories'] = {k: list(v) for k, v in STRATAGEM_CATEGORIES.items()}
+            self.data['global_category'] = GLOBAL_CATEGORY
             with open(self.json_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, ensure_ascii=False, indent=2)
             if self.on_save_callback:

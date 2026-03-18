@@ -101,6 +101,7 @@ class StratagemApp(ctk.CTk):
             stratagem_names=self.stratagem_manager.get_all_names(),
             json_path="stratagems.json",
             on_save_callback=self._on_stratagem_json_saved,
+            stratagem_manager=self.stratagem_manager,
         )
         
         # 构建设置 Tab
@@ -262,25 +263,24 @@ class StratagemApp(ctk.CTk):
     
     def _on_stratagem_json_saved(self, json_path: str = None):
         """战备JSON保存回调（热更新）"""
-        # 重新加载战备数据
+        # 重新加载战备数据（含 categories、eagle_stratagems）
         self.stratagem_manager.load_stratagems()
-        
+
         # 同步 matcher 的 aliases
         self.engine.matcher.aliases = self.stratagem_manager.aliases
-        
-        # 同步编辑器的任务类分类到 StratagemManager.AVAILABLE_GLOBAL_COMMANDS
-        from gui.gui_stratagem_editor_tab import STRATAGEM_CATEGORIES, GLOBAL_CATEGORY
-        new_global = list(STRATAGEM_CATEGORIES.get(GLOBAL_CATEGORY, []))
-        self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS = new_global
-        
+
+        # 同步编辑器模块级分类字典
+        self.editor_tab._sync_categories_from_manager()
+
         # 刷新主界面全局指令勾选框
+        new_global = self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS
         self.main_tab.refresh_global_commands(new_global)
-        
-        # 刷新主界面和测试界面的战备列表（让新战备可被选入槽位）
+
+        # 刷新主界面和测试界面的战备列表
         all_names = self.stratagem_manager.get_all_names()
         self.main_tab.refresh_stratagem_names(all_names)
         self.test_tab.refresh_stratagem_names(all_names)
-        
+
         # 如果引擎正在运行，重启监听使新数据立即生效
         if self.engine_running:
             self.engine.stop()
@@ -288,7 +288,6 @@ class StratagemApp(ctk.CTk):
             self.log_manager.log("战备指令已更新并热重载，监听已自动重启。")
         else:
             self.log_manager.log("战备指令已更新，下次启动监听时生效。")
-
 
 if __name__ == "__main__":
     app = StratagemApp()

@@ -58,6 +58,11 @@ class StratagemManager:
         data = json.loads(self.json_path.read_text(encoding="utf-8"))
         self.stratagems = data.get("stratagems", {})
         self.aliases = data.get("aliases", {})
+        self.categories: Dict[str, List[str]] = data.get("categories", {})
+        self.global_category: str = data.get("global_category", "任务类")
+        self.eagle_stratagems = data.get("eagle_stratagems", self.eagle_stratagems)
+        # 更新全局指令候选列表
+        self.AVAILABLE_GLOBAL_COMMANDS = list(self.categories.get(self.global_category, []))
     
     def is_allowed(self, name: str) -> bool:
         """检查战备是否允许触发"""
