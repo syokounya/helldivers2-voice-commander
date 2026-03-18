@@ -250,6 +250,7 @@ class MainTab:
         # 保存槽位框架和战备菜单的引用
         self.slot_frames = []
         self.slot_menus = []
+        self.slot_category_menus = []  # 保存分类菜单引用
         
         # 4个槽位
         for i in range(4):
@@ -293,6 +294,7 @@ class MainTab:
                 width=120,
             )
             category_menu.grid(row=0, column=1, padx=10, pady=12)
+            self.slot_category_menus.append(category_menu)
             self.slot_category_vars.append(category_var)
             
             # 战备选择（添加"无"选项）
@@ -409,10 +411,11 @@ class MainTab:
             self.status_detail_text.grid_remove()  # 隐藏
 
     def refresh_stratagem_names(self, names: List[str]) -> None:
-        """热更新战备名称列表，将不在已有分类中的战备加入未分类"""
+        """热更新战备名称列表，将不在已有分类中的战备加入未分类，并刷新槽位菜单"""
         all_categorized = set(
             item
-            for items in self.STRATAGEM_CATEGORIES.values()
+            for cat, items in self.STRATAGEM_CATEGORIES.items()
+            if cat != "未分类"
             for item in items
         )
         uncategorized = [n for n in names if n not in all_categorized]
@@ -420,3 +423,15 @@ class MainTab:
             self.STRATAGEM_CATEGORIES["未分类"] = uncategorized
         elif "未分类" in self.STRATAGEM_CATEGORIES:
             del self.STRATAGEM_CATEGORIES["未分类"]
+
+        # 刷新分类菜单选项（让"未分类"出现或消失）
+        all_cats = list(self.STRATAGEM_CATEGORIES.keys())
+        for cat_menu in self.slot_category_menus:
+            cat_menu.configure(values=all_cats)
+
+        # 刷新每个槽位当前分类的战备菜单
+        for i, (cat_var, slot_menu) in enumerate(zip(self.slot_category_vars, self.slot_menus)):
+            current_cat = cat_var.get()
+            if current_cat in self.STRATAGEM_CATEGORIES:
+                items = ["无"] + self.STRATAGEM_CATEGORIES[current_cat]
+                slot_menu.configure(values=items)
