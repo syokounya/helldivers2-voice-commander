@@ -61,6 +61,19 @@ class StratagemManager:
         self.categories: Dict[str, List[str]] = data.get("categories", {})
         self.global_category: str = data.get("global_category", "任务类")
         self.eagle_stratagems = data.get("eagle_stratagems", self.eagle_stratagems)
+
+        # 旧版 JSON 没有 categories 字段时，按战备名自动归类（兼容旧数据）
+        if not self.categories:
+            self.categories = self._infer_categories_from_stratagems()
+            self.global_category = "任务类"
+            # 自动补全写回 JSON，升级旧文件
+            data["categories"] = self.categories
+            data["global_category"] = self.global_category
+            data["eagle_stratagems"] = self.eagle_stratagems
+            self.json_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+
         # 更新全局指令候选列表
         self.AVAILABLE_GLOBAL_COMMANDS = list(self.categories.get(self.global_category, []))
     
@@ -137,4 +150,8 @@ class StratagemManager:
             return "✈️ 检测到飞鹰战备，已自动启用【飞鹰整备】"
         elif status == "disabled":
             return "⚠️ 未选择飞鹰战备，已自动禁用【飞鹰整备】"
+
+    def _infer_categories_from_stratagems(self) -> Dict[str, List[str]]:
+        """旧版 JSON 无分类数据时，将所有战备放入未分类（兼容升级）"""
+        return {"未分类": list(self.stratagems.keys())}
         return None
