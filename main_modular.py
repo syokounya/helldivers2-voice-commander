@@ -85,6 +85,7 @@ class StratagemApp(ctk.CTk):
             on_slot_changed=self._on_slot_changed,
             on_global_command_toggled=self._on_global_command_toggled,
             on_toggle_engine=self._toggle_engine,
+            stratagem_manager=self.stratagem_manager,
         )
         
         # 构建测试 Tab

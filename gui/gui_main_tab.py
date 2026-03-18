@@ -3,15 +3,11 @@ GUI 主界面 Tab
 """
 import customtkinter as ctk
 from typing import List, Callable, Dict
-from gui.gui_stratagem_editor_tab import STRATAGEM_CATEGORIES as STRATAGEM_CATEGORIES
 
 
 class MainTab:
     """主界面 Tab"""
-    
-    # 战备分类：直接引用编辑器模块的同一对象，改名/新增后自动同步
-    STRATAGEM_CATEGORIES = STRATAGEM_CATEGORIES
-    
+
     def __init__(
         self,
         parent,
@@ -22,6 +18,7 @@ class MainTab:
         on_slot_changed: Callable[[int, str], None],
         on_global_command_toggled: Callable[[str, bool], None],
         on_toggle_engine: Callable[[], None],
+        stratagem_manager=None,
     ):
         self.parent = parent
         self.stratagem_names = sorted(stratagem_names)
@@ -31,6 +28,12 @@ class MainTab:
         self.on_slot_changed = on_slot_changed
         self.on_global_command_toggled = on_global_command_toggled
         self.on_toggle_engine = on_toggle_engine
+
+        # 从 StratagemManager 加载分类数据（JSON 驱动，不硬编码）
+        if stratagem_manager and hasattr(stratagem_manager, 'categories') and stratagem_manager.categories:
+            self.STRATAGEM_CATEGORIES = stratagem_manager.categories
+        else:
+            self.STRATAGEM_CATEGORIES = {}
         
         self.slot_vars: List[ctk.StringVar] = []
         self.slot_category_vars: List[ctk.StringVar] = []
