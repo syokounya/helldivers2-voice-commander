@@ -268,6 +268,14 @@ class StratagemApp(ctk.CTk):
         # 同步 matcher 的 aliases
         self.engine.matcher.aliases = self.stratagem_manager.aliases
         
+        # 同步编辑器的任务类分类到 StratagemManager.AVAILABLE_GLOBAL_COMMANDS
+        from gui.gui_stratagem_editor_tab import STRATAGEM_CATEGORIES, GLOBAL_CATEGORY
+        new_global = list(STRATAGEM_CATEGORIES.get(GLOBAL_CATEGORY, []))
+        self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS = new_global
+        
+        # 刷新主界面全局指令勾选框
+        self.main_tab.refresh_global_commands(new_global)
+        
         # 刷新主界面和测试界面的战备列表（让新战备可被选入槽位）
         all_names = self.stratagem_manager.get_all_names()
         self.main_tab.refresh_stratagem_names(all_names)

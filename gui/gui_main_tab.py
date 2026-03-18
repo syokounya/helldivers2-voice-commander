@@ -88,6 +88,7 @@ class MainTab:
         )
         scroll_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         scroll_frame.grid_columnconfigure(0, weight=1)
+        self.scroll_frame = scroll_frame  # 保存引用供热更新使用
         
         # 全局指令区域
         self._build_global_commands(scroll_frame)
@@ -435,3 +436,42 @@ class MainTab:
             if current_cat in self.STRATAGEM_CATEGORIES:
                 items = ["无"] + self.STRATAGEM_CATEGORIES[current_cat]
                 slot_menu.configure(values=items)
+
+    def refresh_global_commands(self, new_global_commands):
+        """热更新全局指令勾选框列表"""
+        self.available_global_commands = new_global_commands
+        # 销毁 row 1~99 的所有勾选框
+        for widget in self.scroll_frame.winfo_children():
+            info = widget.grid_info()
+            if info:
+                r = int(info.get("row", 0))
+                if 1 <= r < 100:
+                    widget.destroy()
+        # 重建勾选框
+        row = 1
+        col = 0
+        for cmd in self.available_global_commands:
+            if cmd == "飞鹰整备":
+                continue
+            if cmd not in self.global_command_vars:
+                self.global_command_vars[cmd] = ctk.BooleanVar(value=False)
+            var = self.global_command_vars[cmd]
+            checkbox = ctk.CTkCheckBox(
+                self.scroll_frame,
+                text=cmd,
+                variable=var,
+                command=lambda c=cmd, v=var: self.on_global_command_toggled(c, v.get()),
+                text_color="#FFFFFF",
+                fg_color="#FFD700",
+                border_color="#FFD700",
+                hover_color="#FFDD55",
+                font=("Arial", 13),
+                checkbox_width=24,
+                checkbox_height=24,
+            )
+            checkbox.grid(row=row, column=col, sticky="w", padx=15, pady=10)
+            col += 1
+            if col >= 3:
+                col = 0
+                row += 1
+
