@@ -462,10 +462,25 @@ class StratagemEditorTab:
             self.data.setdefault("stratagems", {})[name] = self.recorded_keys
             self._save_data()
             self.current_item_name = name
-            # 刷新列表
-            cat = self.category_menu.get()
-            self._on_category_selected(cat)
-            self.item_menu.set(name)
+            # 判断该战备属于哪个分类
+            target_cat = self._get_category_for(name)
+            # 如果不在任何已知分类，归入未分类
+            if target_cat == "未分类":
+                STRATAGEM_CATEGORIES["未分类"] = [
+                    n for n in self.data.get("stratagems", {})
+                    if self._get_category_for(n) == "未分类"
+                ]
+                all_cats = list(STRATAGEM_CATEGORIES.keys())
+                self.category_menu.configure(values=all_cats)
+            # 切换到对应分类并选中该战备
+            self.category_menu.set(target_cat)
+            self._on_category_selected(target_cat)
+            # 找到后在列表中选中
+            items = self._get_items_in_category(target_cat)
+            values = ["── 新增战备 ──"] + items
+            self.item_menu.configure(values=values)
+            if name in items:
+                self.item_menu.set(name)
         else:
             target = self.alias_target_menu.get()
             if not target or target == "无":
