@@ -139,16 +139,16 @@ class MainTab:
     def _build_global_commands(self, parent):
         parent.grid_columnconfigure(0, weight=1, uniform="gc")
         parent.grid_columnconfigure(1, weight=1, uniform="gc")
-        parent.grid_columnconfigure(2, weight=1, uniform="gc")
+        parent.grid_columnconfigure(2, weight=0, minsize=0)
         ctk.CTkLabel(parent, text="任务全局指令", text_color="#FFD700",
                      anchor="w", font=("Arial", 16, "bold")
-                     ).grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(0, 5))
+                     ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
         if self._eagle_rearm:
             ctk.CTkLabel(
                 parent,
                 text=f"💡 提示：【{self._eagle_rearm}】会根据槽位中的飞鹰战备自动启用/禁用",
                 text_color="#888888", anchor="w", font=("Arial", 11),
-            ).grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(25, 0))
+            ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(25, 0))
         self._render_global_checkboxes(parent, start_row=1)
 
     def _render_global_checkboxes(self, parent, start_row: int = 1):
@@ -169,7 +169,7 @@ class MainTab:
             )
             cb.grid(row=row, column=col, sticky="w", padx=15, pady=10)
             col += 1
-            if col >= 3:
+            if col >= 2:
                 col = 0
                 row += 1
 
