@@ -59,3 +59,4 @@ dist/
 .coverage
 htmlcov/
 .ico
+*.7z
