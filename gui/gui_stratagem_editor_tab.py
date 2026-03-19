@@ -51,18 +51,37 @@ class StratagemEditorTab:
         return "任务类"
 
     def _load_data(self):
-        try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                self.data = json.load(f)
-        except Exception:
-            self.data = {"stratagems": {}, "aliases": {}}
+        """从 stratagem_manager 加载数据（单一数据源），同时读文件作为 aliases 等字段的补充"""
+        if self.stratagem_manager:
+            # 直接引用 manager 的数据对象，和主界面完全共享
+            self.data = {
+                "stratagems": self.stratagem_manager.stratagems,
+                "aliases": self.stratagem_manager.aliases,
+            }
+        else:
+            try:
+                with open(self.json_path, 'r', encoding='utf-8') as f:
+                    self.data = json.load(f)
+            except Exception:
+                self.data = {"stratagems": {}, "aliases": {}}
 
     def _save_data(self):
         try:
-            self.data['categories'] = {k: list(v) for k, v in self._cats.items()}
-            self.data['global_category'] = self._global_cat
+            # 构建完整 JSON 数据（从 manager 获取所有字段）
+            save_data = {
+                "stratagems": self.stratagem_manager.stratagems if self.stratagem_manager else self.data.get("stratagems", {}),
+                "aliases": self.stratagem_manager.aliases if self.stratagem_manager else self.data.get("aliases", {}),
+                "categories": {k: list(v) for k, v in self._cats.items()},
+                "global_category": self._global_cat,
+                "eagle_stratagems": self.stratagem_manager.eagle_stratagems if self.stratagem_manager else [],
+            }
+            # 保留 defaults 字段
+            if self.stratagem_manager:
+                raw = json.loads(open(self.json_path, encoding='utf-8').read())
+                if 'defaults' in raw:
+                    save_data['defaults'] = raw['defaults']
             with open(self.json_path, 'w', encoding='utf-8') as f:
-                json.dump(self.data, f, ensure_ascii=False, indent=2)
+                json.dump(save_data, f, ensure_ascii=False, indent=2)
             if self.on_save_callback:
                 self.on_save_callback(self.json_path)
             self._set_status("保存成功", "#4CAF50")
