@@ -139,7 +139,7 @@ class MainTab:
     def _build_global_commands(self, parent):
         parent.grid_columnconfigure(0, weight=1, uniform="gc")
         parent.grid_columnconfigure(1, weight=1, uniform="gc")
-        parent.grid_columnconfigure(2, weight=0, minsize=0)
+        parent.grid_columnconfigure(2, weight=1, uniform="gc")
         ctk.CTkLabel(parent, text="任务全局指令", text_color="#FFD700",
                      anchor="w", font=("Arial", 16, "bold")
                      ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
@@ -169,7 +169,7 @@ class MainTab:
             )
             cb.grid(row=row, column=col, sticky="w", padx=15, pady=10)
             col += 1
-            if col >= 2:
+            if col >= 3:
                 col = 0
                 row += 1
 
