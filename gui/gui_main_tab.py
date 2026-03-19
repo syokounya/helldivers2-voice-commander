@@ -74,6 +74,7 @@ class MainTab:
         )
         self.scroll_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         self.scroll_frame.grid_columnconfigure(0, weight=1)
+        self._bind_scroll(self.scroll_frame)
 
         self._build_global_commands(self.scroll_frame)
         sep = ctk.CTkFrame(self.scroll_frame, height=2, fg_color="#333333")
@@ -117,6 +118,23 @@ class MainTab:
             text_color="#FFFFFF", font=("Consolas", 10))
         self.log_text.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.log_text.configure(state="disabled")
+
+    def _bind_scroll(self, frame):
+        """为 CTkScrollableFrame 及其所有子控件绑定快速鼠标滚轮"""
+        def _on_mousewheel(event):
+            frame._parent_canvas.yview_scroll(int(-1 * (event.delta / 30)), "units")
+
+        def _bind_to_widget(widget):
+            widget.bind("<MouseWheel>", _on_mousewheel, add="+")
+            for child in widget.winfo_children():
+                _bind_to_widget(child)
+
+        frame.bind("<MouseWheel>", _on_mousewheel, add="+")
+        frame._parent_canvas.bind("<MouseWheel>", _on_mousewheel, add="+")
+        _bind_to_widget(frame)
+
+        # 当新子控件被添加时也自动绑定
+        frame.bind("<Configure>", lambda e: _bind_to_widget(frame), add="+")
 
     def _build_global_commands(self, parent):
         parent.grid_columnconfigure(0, weight=1, uniform="gc")
