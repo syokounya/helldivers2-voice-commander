@@ -48,11 +48,19 @@ class SettingsTab:
         )
         scrollable_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # 绑定鼠标滚轮事件（修复滚动问题）
+        # 绑定鼠标滚轮事件（修复滚动速度）
         def _on_mousewheel(event):
-            scrollable_frame._parent_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        
-        scrollable_frame.bind_all("<MouseWheel>", _on_mousewheel)
+            scrollable_frame._parent_canvas.yview_scroll(int(-1 * (event.delta / 30)), "units")
+
+        def _bind_to_widget(widget):
+            widget.bind("<MouseWheel>", _on_mousewheel, add="+")
+            for child in widget.winfo_children():
+                _bind_to_widget(child)
+
+        scrollable_frame.bind("<MouseWheel>", _on_mousewheel, add="+")
+        scrollable_frame._parent_canvas.bind("<MouseWheel>", _on_mousewheel, add="+")
+        _bind_to_widget(scrollable_frame)
+        scrollable_frame.bind("<Configure>", lambda e: _bind_to_widget(scrollable_frame), add="+")
         
         # 创建居中的内容容器（限制最大宽度）
         content_frame = ctk.CTkFrame(scrollable_frame, fg_color="#000000")
