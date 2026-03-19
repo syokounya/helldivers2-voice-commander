@@ -42,7 +42,7 @@
 #### 方法 1：下载可执行文件（推荐）
 
 1. 前往 [Releases](https://github.com/syokounya/helldivers2-voice-commander/releases) 页面
-2. 下载最新版本的 `Helldivers2-Voice-Commander-vX.X.X.zip`
+2. 下载最新版本的 `Helldiver-Voice-Commander-vX.X.X.7z`
 3. 解压到任意目录
 4. 运行 `Helldivers2-Voice-Commander.exe`
 5. 在"设置"Tab 中配置阿里云密钥
@@ -246,7 +246,7 @@ A:
 
 ### 📞 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/sykounya/helldivers2-voice-commander/issues)
+- **GitHub Issues**: [提交问题](https://github.com/syokounya/helldivers2-voice-commander/issues)
 - **Email**: 
 
 ### ⚠️ 免责声明
@@ -283,7 +283,7 @@ A:
 #### Method 1: Download Executable (Recommended)
 
 1. Go to [Releases](https://github.com/syokounya/helldivers2-voice-commander/releases)
-2. Download the latest `Helldivers2-Voice-Commander-vX.X.X.zip`
+2. Download the latest `Helldiver-Voice-Commander-vX.X.X.7z`
 3. Extract to any directory
 4. Run `Helldivers2-Voice-Commander.exe`
 5. Configure Aliyun credentials in "Settings" tab
