@@ -141,14 +141,15 @@ class MainTab:
         parent.grid_columnconfigure(1, weight=1, uniform="gc")
         parent.grid_columnconfigure(2, weight=1, uniform="gc")
         ctk.CTkLabel(parent, text="任务全局指令", text_color="#FFD700",
-                     anchor="w", font=("Arial", 16, "bold")
+                     anchor="w", font=("Arial", 18, "bold")
                      ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
         if self._eagle_rearm:
             ctk.CTkLabel(
                 parent,
                 text=f"💡 提示：【{self._eagle_rearm}】会根据槽位中的飞鹰战备自动启用/禁用",
-                text_color="#888888", anchor="w", font=("Arial", 11),
-            ).grid(row=1, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
+                text_color="#888888", anchor="w", font=("Arial", 12),
+                wraplength=600, justify="left",
+            ).grid(row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 5))
         self._render_global_checkboxes(parent, start_row=2)
 
     def _render_global_checkboxes(self, parent, start_row: int = 1):
@@ -176,7 +177,7 @@ class MainTab:
     def _build_slot_config(self, parent):
         ctk.CTkLabel(parent, text="本局战备配置（4个槽位）",
                      text_color="#FFD700", anchor="w",
-                     font=("Arial", 16, "bold")
+                     font=("Arial", 18, "bold")
                      ).grid(row=200, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 10))
 
         self.slot_frames = []
