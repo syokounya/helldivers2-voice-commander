@@ -148,8 +148,8 @@ class MainTab:
                 parent,
                 text=f"💡 提示：【{self._eagle_rearm}】会根据槽位中的飞鹰战备自动启用/禁用",
                 text_color="#888888", anchor="w", font=("Arial", 11),
-            ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(25, 0))
-        self._render_global_checkboxes(parent, start_row=1)
+            ).grid(row=1, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 5))
+        self._render_global_checkboxes(parent, start_row=2)
 
     def _render_global_checkboxes(self, parent, start_row: int = 1):
         row, col = start_row, 0
@@ -317,4 +317,4 @@ class MainTab:
                         widget.destroy()
                 except (ValueError, TypeError):
                     pass
-        self._render_global_checkboxes(self.scroll_frame, start_row=1)
+        self._render_global_checkboxes(self.scroll_frame, start_row=2)
