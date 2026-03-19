@@ -327,6 +327,14 @@ class StratagemEditorTab:
             self.target_cat_frame.pack(fill="x", padx=15, pady=(0, 15), before=self.keys_frame)
         self._set_status("请输入名称并录制指令", "#2196F3")
 
+    def _ensure_json_consistency(self):
+        """清理 categories 里不存在于 stratagems 的孤立条目"""
+        stratagems = self.data.get("stratagems", {})
+        for members in self._cats.values():
+            orphans = [m for m in members if m not in stratagems]
+            for o in orphans:
+                members.remove(o)
+
     def _on_save(self):
         name = self.item_name_entry.get().strip()
         if not name:
@@ -352,6 +360,7 @@ class StratagemEditorTab:
                     if name not in self._cats.get(tgt, []):
                         self._cats.setdefault(tgt, []).append(name)
             self.data.setdefault("stratagems", {})[name] = self.recorded_keys
+            self._ensure_json_consistency()
             self._save_data()
             self.current_item_name = name
             all_cats = self._all_category_names()
