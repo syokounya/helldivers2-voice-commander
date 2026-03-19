@@ -32,8 +32,10 @@ class MainTab:
         # 从 StratagemManager 加载分类数据（JSON 驱动，不硬编码）
         if stratagem_manager and hasattr(stratagem_manager, 'categories') and stratagem_manager.categories:
             self.STRATAGEM_CATEGORIES = stratagem_manager.categories  # 直接引用同一对象
+            self._global_category = getattr(stratagem_manager, 'global_category', '任务类')
         else:
             self.STRATAGEM_CATEGORIES = {}
+            self._global_category = '任务类'
         
         self.slot_vars: List[ctk.StringVar] = []
         self.slot_category_vars: List[ctk.StringVar] = []
@@ -237,6 +239,13 @@ class MainTab:
         self.slot_frames = []
         self.slot_menus = []
         self.slot_category_menus = []  # 保存分类菜单引用
+
+        # 槽位可用分类：排除全局战备分类（任务类，用勾选框控制）
+        global_cat = getattr(self, '_global_category', None)
+        if not global_cat and hasattr(self, '_stratagem_manager'):
+            global_cat = getattr(self._stratagem_manager, 'global_category', '任务类')
+        slot_cats = [c for c in self.STRATAGEM_CATEGORIES.keys() if c != global_cat]
+        default_cat_fallback = slot_cats[0] if slot_cats else list(self.STRATAGEM_CATEGORIES.keys())[0]
         
         # 4个槽位
         for i in range(4):
@@ -258,7 +267,7 @@ class MainTab:
             
             # 确定默认值和分类
             default_value = self.active_slots[i] if i < len(self.active_slots) else ""
-            default_category = "背包类"
+            default_category = default_cat_fallback
             for cat, items in self.STRATAGEM_CATEGORIES.items():
                 if default_value in items:
                     default_category = cat
@@ -269,7 +278,7 @@ class MainTab:
             category_menu = ctk.CTkOptionMenu(
                 slot_frame,
                 variable=category_var,
-                values=list(self.STRATAGEM_CATEGORIES.keys()),
+                values=slot_cats,
                 command=lambda val, idx=i: self._on_category_changed(idx, val),
                 fg_color="#FFD700",
                 button_color="#FFDD55",
