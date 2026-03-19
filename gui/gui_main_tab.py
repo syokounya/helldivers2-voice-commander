@@ -6,7 +6,7 @@ from typing import List, Callable, Dict
 
 
 class MainTab:
-    """主界面 Tab"""
+    """主界面 Tab —— 完全通过 stratagem_manager 联动，零硬编码"""
 
     def __init__(
         self,
@@ -22,450 +22,281 @@ class MainTab:
     ):
         self.parent = parent
         self.stratagem_names = sorted(stratagem_names)
-        self.active_slots = active_slots
-        self.available_global_commands = available_global_commands
+        self.active_slots = list(active_slots)
+        self.available_global_commands = list(available_global_commands)
         self.enabled_global_commands = enabled_global_commands
         self.on_slot_changed = on_slot_changed
         self.on_global_command_toggled = on_global_command_toggled
         self.on_toggle_engine = on_toggle_engine
+        self._sm = stratagem_manager
 
-        # 从 StratagemManager 加载分类数据（JSON 驱动，不硬编码）
-        if stratagem_manager and hasattr(stratagem_manager, 'categories') and stratagem_manager.categories:
-            self.STRATAGEM_CATEGORIES = stratagem_manager.categories  # 直接引用同一对象
-            self._global_category = getattr(stratagem_manager, 'global_category', '任务类')
+        if self._sm and getattr(self._sm, 'categories', None):
+            self._cats = self._sm.categories
+            self._global_cat = self._sm.global_category
+            self._eagle_rearm = self._sm.eagle_rearm_name
         else:
-            self.STRATAGEM_CATEGORIES = {}
-            self._global_category = '任务类'
-        
+            self._cats = {}
+            self._global_cat = ""
+            self._eagle_rearm = ""
+
+        self._slot_cats = [c for c in self._cats if c != self._global_cat]
+
         self.slot_vars: List[ctk.StringVar] = []
         self.slot_category_vars: List[ctk.StringVar] = []
         self.slot_frames: List[ctk.CTkFrame] = []
         self.slot_menus: List[ctk.CTkOptionMenu] = []
+        self.slot_category_menus: List[ctk.CTkOptionMenu] = []
         self.global_command_vars: Dict[str, ctk.BooleanVar] = {}
         self.toggle_button: ctk.CTkButton = None
         self.log_text: ctk.CTkTextbox = None
         self.status_label: ctk.CTkLabel = None
         self.status_detail_text: ctk.CTkTextbox = None
-        
+        self.scroll_frame = None
+
         self._build()
-    
+
     def _build(self):
-        """构建主界面"""
-        # 主容器（支持窗口缩放）
-        main_container = ctk.CTkFrame(self.parent, fg_color="#000000")
-        main_container.pack(fill="both", expand=True)
-        
-        # 配置行列权重，使其可以缩放
-        main_container.grid_rowconfigure(0, weight=1)
-        main_container.grid_columnconfigure(0, weight=3)
-        main_container.grid_columnconfigure(1, weight=1)
-        
-        # 左侧：配置区域（带滚动）
-        left_frame = ctk.CTkFrame(main_container, fg_color="#111111")
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        left_frame.grid_rowconfigure(0, weight=1)
-        left_frame.grid_columnconfigure(0, weight=1)
-        
-        # 创建滚动框架
-        scroll_frame = ctk.CTkScrollableFrame(
-            left_frame,
-            fg_color="#111111",
+        mc = ctk.CTkFrame(self.parent, fg_color="#000000")
+        mc.pack(fill="both", expand=True)
+        mc.grid_rowconfigure(0, weight=1)
+        mc.grid_columnconfigure(0, weight=3)
+        mc.grid_columnconfigure(1, weight=1)
+
+        lf = ctk.CTkFrame(mc, fg_color="#111111")
+        lf.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
+        lf.grid_rowconfigure(0, weight=1)
+        lf.grid_columnconfigure(0, weight=1)
+
+        self.scroll_frame = ctk.CTkScrollableFrame(
+            lf, fg_color="#111111",
             scrollbar_button_color="#FFD700",
             scrollbar_button_hover_color="#FFDD55",
         )
-        scroll_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        scroll_frame.grid_columnconfigure(0, weight=1)
-        self.scroll_frame = scroll_frame  # 保存引用供热更新使用
-        
-        # 全局指令区域
-        self._build_global_commands(scroll_frame)
-        
-        # 分隔线
-        separator = ctk.CTkFrame(scroll_frame, height=2, fg_color="#333333")
-        separator.grid(row=100, column=0, sticky="ew", padx=10, pady=15)
-        
-        # 槽位战备区域
-        self._build_slot_config(scroll_frame)
-        
-        # 右侧：控制和日志区域
-        right_frame = ctk.CTkFrame(main_container, fg_color="#111111")
-        right_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        right_frame.grid_rowconfigure(3, weight=1)
-        right_frame.grid_columnconfigure(0, weight=1)
-        
-        # 控制按钮
+        self.scroll_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+
+        self._build_global_commands(self.scroll_frame)
+        sep = ctk.CTkFrame(self.scroll_frame, height=2, fg_color="#333333")
+        sep.grid(row=100, column=0, sticky="ew", padx=10, pady=15)
+        self._build_slot_config(self.scroll_frame)
+
+        rf = ctk.CTkFrame(mc, fg_color="#111111")
+        rf.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
+        rf.grid_rowconfigure(3, weight=1)
+        rf.grid_columnconfigure(0, weight=1)
+
         self.toggle_button = ctk.CTkButton(
-            right_frame,
-            text="开始监听",
-            command=self.on_toggle_engine,
-            fg_color="#FFD700",
-            hover_color="#FFDD55",
-            text_color="#000000",
-            height=50,
-            font=("Arial", 14, "bold"),
+            rf, text="开始监听", command=self.on_toggle_engine,
+            fg_color="#FFD700", hover_color="#FFDD55", text_color="#000000",
+            height=50, font=("Arial", 14, "bold"),
         )
         self.toggle_button.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
-        
-        # 阿里云服务状态区域
-        status_frame = ctk.CTkFrame(right_frame, fg_color="#1a1a1a", corner_radius=8)
-        status_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
-        status_frame.grid_columnconfigure(1, weight=1)
-        
-        status_title = ctk.CTkLabel(
-            status_frame,
-            text="阿里云服务状态：",
-            text_color="#FFFFFF",
-            anchor="w",
-            font=("Arial", 11, "bold"),
-        )
-        status_title.grid(row=0, column=0, sticky="w", padx=10, pady=8)
-        
-        self.status_label = ctk.CTkLabel(
-            status_frame,
-            text="● 未连接",
-            text_color="#888888",
-            anchor="w",
-            font=("Arial", 11, "bold"),
-        )
+
+        sf2 = ctk.CTkFrame(rf, fg_color="#1a1a1a", corner_radius=8)
+        sf2.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 10))
+        sf2.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(sf2, text="阿里云服务状态：", text_color="#FFFFFF",
+                     anchor="w", font=("Arial", 11, "bold")
+                     ).grid(row=0, column=0, sticky="w", padx=10, pady=8)
+        self.status_label = ctk.CTkLabel(sf2, text="● 未连接", text_color="#888888",
+                                          anchor="w", font=("Arial", 11, "bold"))
         self.status_label.grid(row=0, column=1, sticky="w", padx=5, pady=8)
-        
-        # 状态详情（可折叠）
         self.status_detail_text = ctk.CTkTextbox(
-            status_frame,
-            wrap="word",
-            fg_color="#0a0a0a",
-            text_color="#FF6B6B",
-            font=("Consolas", 9),
-            height=80,
-        )
-        self.status_detail_text.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 10))
+            sf2, wrap="word", fg_color="#0a0a0a",
+            text_color="#FF6B6B", font=("Consolas", 9), height=80)
+        self.status_detail_text.grid(row=1, column=0, columnspan=2,
+                                      sticky="ew", padx=10, pady=(0, 10))
         self.status_detail_text.configure(state="disabled")
-        self.status_detail_text.grid_remove()  # 默认隐藏
-        
-        # 日志区域
-        log_label = ctk.CTkLabel(
-            right_frame,
-            text="语音识别日志：",
-            text_color="#FFFFFF",
-            anchor="w",
-            font=("Arial", 12, "bold"),
-        )
-        log_label.grid(row=2, column=0, sticky="w", padx=10, pady=(10, 5))
-        
+        self.status_detail_text.grid_remove()
+
+        ctk.CTkLabel(rf, text="语音识别日志：", text_color="#FFFFFF",
+                     anchor="w", font=("Arial", 12, "bold")
+                     ).grid(row=2, column=0, sticky="w", padx=10, pady=(10, 5))
         self.log_text = ctk.CTkTextbox(
-            right_frame,
-            wrap="word",
-            fg_color="#000000",
-            text_color="#FFFFFF",
-            font=("Consolas", 10),
-        )
+            rf, wrap="word", fg_color="#000000",
+            text_color="#FFFFFF", font=("Consolas", 10))
         self.log_text.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.log_text.configure(state="disabled")
-        
-        # 配置右侧框架的行权重
-        right_frame.grid_rowconfigure(3, weight=1)
-    
+
     def _build_global_commands(self, parent):
-        """构建全局指令区域"""
-        # 标题
-        title = ctk.CTkLabel(
-            parent,
-            text="任务全局指令",
-            text_color="#FFD700",
-            anchor="w",
-            font=("Arial", 16, "bold"),
-        )
-        title.grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(0, 20))
-        
-        # 飞鹰整备提示
-        eagle_hint = ctk.CTkLabel(
-            parent,
-            text="💡 提示：【飞鹰整备】会根据槽位中的飞鹰战备自动启用/禁用",
-            text_color="#888888",
-            anchor="w",
-            font=("Arial", 11),
-        )
-        eagle_hint.grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(25, 0))
-        
-        # 配置列权重，使3列均匀分布
-        parent.grid_columnconfigure(0, weight=1, uniform="global_cmd")
-        parent.grid_columnconfigure(1, weight=1, uniform="global_cmd")
-        parent.grid_columnconfigure(2, weight=1, uniform="global_cmd")
-        
-        # 使用网格布局，3列显示（排除飞鹰整备）
-        row = 1
-        col = 0
-        for i, cmd in enumerate(self.available_global_commands):
-            # 跳过飞鹰整备，它会自动管理
-            if cmd == "飞鹰整备":
-                continue
-            
-            var = ctk.BooleanVar(value=(cmd in self.enabled_global_commands))
-            checkbox = ctk.CTkCheckBox(
+        parent.grid_columnconfigure(0, weight=1, uniform="gc")
+        parent.grid_columnconfigure(1, weight=1, uniform="gc")
+        parent.grid_columnconfigure(2, weight=1, uniform="gc")
+        ctk.CTkLabel(parent, text="任务全局指令", text_color="#FFD700",
+                     anchor="w", font=("Arial", 16, "bold")
+                     ).grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(0, 5))
+        if self._eagle_rearm:
+            ctk.CTkLabel(
                 parent,
-                text=cmd,
-                variable=var,
+                text=f"💡 提示：【{self._eagle_rearm}】会根据槽位中的飞鹰战备自动启用/禁用",
+                text_color="#888888", anchor="w", font=("Arial", 11),
+            ).grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(25, 0))
+        self._render_global_checkboxes(parent, start_row=1)
+
+    def _render_global_checkboxes(self, parent, start_row: int = 1):
+        row, col = start_row, 0
+        for cmd in self.available_global_commands:
+            if cmd == self._eagle_rearm:
+                continue
+            if cmd not in self.global_command_vars:
+                self.global_command_vars[cmd] = ctk.BooleanVar(
+                    value=(cmd in self.enabled_global_commands))
+            var = self.global_command_vars[cmd]
+            cb = ctk.CTkCheckBox(
+                parent, text=cmd, variable=var,
                 command=lambda c=cmd, v=var: self.on_global_command_toggled(c, v.get()),
-                text_color="#FFFFFF",
-                fg_color="#FFD700",
-                border_color="#FFD700",
-                hover_color="#FFDD55",
-                font=("Arial", 13),
-                checkbox_width=24,
-                checkbox_height=24,
+                text_color="#FFFFFF", fg_color="#FFD700",
+                border_color="#FFD700", hover_color="#FFDD55",
+                font=("Arial", 13), checkbox_width=24, checkbox_height=24,
             )
-            checkbox.grid(row=row, column=col, sticky="w", padx=15, pady=10)
-            self.global_command_vars[cmd] = var
-            
-            # 3列布局
+            cb.grid(row=row, column=col, sticky="w", padx=15, pady=10)
             col += 1
             if col >= 3:
                 col = 0
                 row += 1
-    
+
     def _build_slot_config(self, parent):
-        """构建槽位配置区域"""
-        # 标题
-        title = ctk.CTkLabel(
-            parent,
-            text="本局战备配置（4个槽位）",
-            text_color="#FFD700",
-            anchor="w",
-            font=("Arial", 16, "bold"),
-        )
-        title.grid(row=200, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 10))
-        
-        # 保存槽位框架和战备菜单的引用
+        ctk.CTkLabel(parent, text="本局战备配置（4个槽位）",
+                     text_color="#FFD700", anchor="w",
+                     font=("Arial", 16, "bold")
+                     ).grid(row=200, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 10))
+
         self.slot_frames = []
         self.slot_menus = []
-        self.slot_category_menus = []  # 保存分类菜单引用
+        self.slot_category_menus = []
+        self.slot_vars = []
+        self.slot_category_vars = []
 
-        # 槽位可用分类：排除全局战备分类（任务类，用勾选框控制）
-        global_cat = getattr(self, '_global_category', None)
-        if not global_cat and hasattr(self, '_stratagem_manager'):
-            global_cat = getattr(self._stratagem_manager, 'global_category', '任务类')
-        slot_cats = [c for c in self.STRATAGEM_CATEGORIES.keys() if c != global_cat]
-        default_cat_fallback = slot_cats[0] if slot_cats else list(self.STRATAGEM_CATEGORIES.keys())[0]
-        
-        # 4个槽位
+        slot_cats = self._slot_cats or list(self._cats.keys())
+        default_cat = slot_cats[0] if slot_cats else ""
+
         for i in range(4):
-            slot_frame = ctk.CTkFrame(parent, fg_color="#1a1a1a", corner_radius=8)
-            slot_frame.grid(row=201 + i, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-            slot_frame.grid_columnconfigure(1, weight=1)
-            slot_frame.grid_columnconfigure(2, weight=2)
-            self.slot_frames.append(slot_frame)
-            
-            # 槽位标签
-            label = ctk.CTkLabel(
-                slot_frame,
-                text=f"槽位 {i + 1}",
-                text_color="#FFD700",
-                font=("Arial", 14, "bold"),
-                width=80,
-            )
-            label.grid(row=0, column=0, padx=15, pady=12)
-            
-            # 确定默认值和分类
-            default_value = self.active_slots[i] if i < len(self.active_slots) else ""
-            default_category = default_cat_fallback
-            for cat, items in self.STRATAGEM_CATEGORIES.items():
-                if default_value in items:
-                    default_category = cat
+            sf = ctk.CTkFrame(parent, fg_color="#1a1a1a", corner_radius=8)
+            sf.grid(row=201 + i, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
+            sf.grid_columnconfigure(2, weight=1)
+            self.slot_frames.append(sf)
+
+            ctk.CTkLabel(sf, text=f"槽位 {i + 1}",
+                         text_color="#FFD700", font=("Arial", 14, "bold"),
+                         width=80).grid(row=0, column=0, padx=15, pady=12)
+
+            cur_val = self.active_slots[i] if i < len(self.active_slots) else ""
+            cur_cat = default_cat
+            for cat, items in self._cats.items():
+                if cur_val in items and cat != self._global_cat:
+                    cur_cat = cat
                     break
-            
-            # 分类选择
-            category_var = ctk.StringVar(value=default_category)
-            category_menu = ctk.CTkOptionMenu(
-                slot_frame,
-                variable=category_var,
-                values=slot_cats,
+
+            cat_var = ctk.StringVar(value=cur_cat)
+            cat_menu = ctk.CTkOptionMenu(
+                sf, variable=cat_var,
+                values=slot_cats if slot_cats else [""],
                 command=lambda val, idx=i: self._on_category_changed(idx, val),
-                fg_color="#FFD700",
-                button_color="#FFDD55",
-                button_hover_color="#FFE680",
-                text_color="#000000",
-                dropdown_fg_color="#FFD700",
-                dropdown_text_color="#000000",
+                fg_color="#FFD700", button_color="#FFDD55",
+                button_hover_color="#FFE680", text_color="#000000",
+                dropdown_fg_color="#FFD700", dropdown_text_color="#000000",
                 width=120,
             )
-            category_menu.grid(row=0, column=1, padx=10, pady=12)
-            self.slot_category_menus.append(category_menu)
-            self.slot_category_vars.append(category_var)
-            
-            # 战备选择（添加"无"选项）
-            category_items = ["无"] + self.STRATAGEM_CATEGORIES[default_category]
-            slot_var = ctk.StringVar(value=default_value if default_value else "无")
+            cat_menu.grid(row=0, column=1, padx=10, pady=12)
+            self.slot_category_menus.append(cat_menu)
+            self.slot_category_vars.append(cat_var)
+
+            items = ["无"] + self._cats.get(cur_cat, [])
+            slot_var = ctk.StringVar(value=cur_val if cur_val else "无")
             slot_menu = ctk.CTkOptionMenu(
-                slot_frame,
-                variable=slot_var,
-                values=category_items,
+                sf, variable=slot_var, values=items,
                 command=lambda val, idx=i: self._on_slot_menu_changed(idx, val),
-                fg_color="#333333",
-                button_color="#444444",
-                button_hover_color="#555555",
-                text_color="#FFFFFF",
-                dropdown_fg_color="#333333",
-                dropdown_text_color="#FFFFFF",
+                fg_color="#333333", button_color="#444444",
+                button_hover_color="#555555", text_color="#FFFFFF",
+                dropdown_fg_color="#333333", dropdown_text_color="#FFFFFF",
             )
             slot_menu.grid(row=0, column=2, padx=10, pady=12, sticky="ew")
             self.slot_vars.append(slot_var)
             self.slot_menus.append(slot_menu)
-    
+
+    # ─── 事件回调 ───
+
     def _on_category_changed(self, slot_index: int, category: str):
-        """分类改变时更新战备列表"""
-        items = ["无"] + self.STRATAGEM_CATEGORIES.get(category, [])
-        if not items:
-            return
-        
-        # 获取旧的战备菜单
+        items = ["无"] + self._cats.get(category, [])
         old_menu = self.slot_menus[slot_index]
-        slot_frame = self.slot_frames[slot_index]
-        
-        # 更新变量
-        stratagem_var = self.slot_vars[slot_index]
-        stratagem_var.set("无")
-        
-        # 销毁旧菜单
+        sf = self.slot_frames[slot_index]
+        slot_var = self.slot_vars[slot_index]
+        slot_var.set("无")
         old_menu.destroy()
-        
-        # 创建新菜单
         new_menu = ctk.CTkOptionMenu(
-            slot_frame,
-            variable=stratagem_var,
-            values=items,
-            command=lambda value, idx=slot_index: self._on_slot_menu_changed(idx, value),
-            fg_color="#333333",
-            button_color="#444444",
-            button_hover_color="#555555",
-            text_color="#FFFFFF",
-            dropdown_fg_color="#333333",
-            dropdown_text_color="#FFFFFF",
+            sf, variable=slot_var, values=items,
+            command=lambda val, idx=slot_index: self._on_slot_menu_changed(idx, val),
+            fg_color="#333333", button_color="#444444",
+            button_hover_color="#555555", text_color="#FFFFFF",
+            dropdown_fg_color="#333333", dropdown_text_color="#FFFFFF",
         )
         new_menu.grid(row=0, column=2, padx=10, pady=12, sticky="ew")
         self.slot_menus[slot_index] = new_menu
-        
-        # 触发回调
         self._on_slot_menu_changed(slot_index, "无")
-    
+
     def _on_slot_menu_changed(self, slot_index: int, value: str):
-        """槽位菜单改变回调"""
-        if value == "无":
-            value = ""
-        self.on_slot_changed(slot_index, value)
-    
+        self.on_slot_changed(slot_index, "" if value == "无" else value)
+
+    # ─── 公开方法 ───
+
     def append_log(self, message: str) -> None:
-        """添加日志"""
         self.log_text.configure(state="normal")
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
-        
-        # 控制行数
         try:
             line_count = int(self.log_text.index("end-1c").split(".")[0])
             if line_count > 1000:
                 self.log_text.delete("1.0", f"{line_count - 999}.0")
         except Exception:
             pass
-        
         self.log_text.configure(state="disabled")
-    
+
     def set_button_state(self, is_running: bool) -> None:
-        """设置按钮状态"""
         if is_running:
             self.toggle_button.configure(text="停止监听", fg_color="#a62f2f")
         else:
             self.toggle_button.configure(text="开始监听", fg_color="#FFD700")
-    
+
     def update_service_status(self, status: str, error_msg: str = "", analysis: str = "") -> None:
-        """更新阿里云服务状态显示"""
-        # 状态颜色映射
-        status_colors = {
-            "未连接": "#888888",
-            "连接中": "#FFA500",
-            "已连接": "#00FF00",
-            "错误": "#FF0000",
-        }
-        
-        color = status_colors.get(status, "#888888")
-        self.status_label.configure(text=f"● {status}", text_color=color)
-        
-        # 显示或隐藏详情
+        colors = {"未连接": "#888888", "连接中": "#FFA500", "已连接": "#00FF00", "错误": "#FF0000"}
+        self.status_label.configure(text=f"● {status}", text_color=colors.get(status, "#888888"))
         if error_msg or analysis:
-            detail_text = ""
-            if error_msg:
-                detail_text += f"错误信息：{error_msg}\n\n"
-            if analysis:
-                detail_text += f"{analysis}"
-            
+            detail = (f"错误信息：{error_msg}\n\n" if error_msg else "") + (analysis or "")
             self.status_detail_text.configure(state="normal")
             self.status_detail_text.delete("1.0", "end")
-            self.status_detail_text.insert("1.0", detail_text)
+            self.status_detail_text.insert("1.0", detail)
             self.status_detail_text.configure(state="disabled")
-            self.status_detail_text.grid()  # 显示
+            self.status_detail_text.grid()
         else:
-            self.status_detail_text.grid_remove()  # 隐藏
+            self.status_detail_text.grid_remove()
 
-    def refresh_stratagem_names(self, names: List[str]) -> None:
-        """热更新战备名称列表，将不在已有分类中的战备加入未分类，并刷新槽位菜单"""
-        all_categorized = set(
-            item
-            for cat, items in self.STRATAGEM_CATEGORIES.items()
-            if cat != "未分类"
-            for item in items
-        )
-        uncategorized = [n for n in names if n not in all_categorized]
-        if uncategorized:
-            self.STRATAGEM_CATEGORIES["未分类"] = uncategorized
-        elif "未分类" in self.STRATAGEM_CATEGORIES:
-            del self.STRATAGEM_CATEGORIES["未分类"]
+    def refresh_stratagem_names(self, names) -> None:
+        if self._sm:
+            self._cats = self._sm.categories
+            self._global_cat = self._sm.global_category
+            self._eagle_rearm = self._sm.eagle_rearm_name
+        self._slot_cats = [c for c in self._cats if c != self._global_cat]
+        slot_cats = self._slot_cats or list(self._cats.keys())
+        for cat_var, slot_menu, cat_menu in zip(
+            self.slot_category_vars, self.slot_menus, self.slot_category_menus
+        ):
+            cat_menu.configure(values=slot_cats if slot_cats else [""])
+            cur_cat = cat_var.get()
+            if cur_cat not in self._cats:
+                cur_cat = slot_cats[0] if slot_cats else ""
+                cat_var.set(cur_cat)
+            slot_menu.configure(values=["无"] + self._cats.get(cur_cat, []))
 
-        # 刷新分类菜单选项（让"未分类"出现或消失）
-        all_cats = list(self.STRATAGEM_CATEGORIES.keys())
-        for cat_menu in self.slot_category_menus:
-            cat_menu.configure(values=all_cats)
-
-        # 刷新每个槽位当前分类的战备菜单
-        for i, (cat_var, slot_menu) in enumerate(zip(self.slot_category_vars, self.slot_menus)):
-            current_cat = cat_var.get()
-            if current_cat in self.STRATAGEM_CATEGORIES:
-                items = ["无"] + self.STRATAGEM_CATEGORIES[current_cat]
-                slot_menu.configure(values=items)
-
-    def refresh_global_commands(self, new_global_commands):
-        """热更新全局指令勾选框列表"""
-        self.available_global_commands = new_global_commands
-        # 销毁 row 1~99 的所有勾选框
+    def refresh_global_commands(self, new_global_commands) -> None:
+        self.available_global_commands = list(new_global_commands)
+        if self._sm:
+            self._eagle_rearm = self._sm.eagle_rearm_name
         for widget in self.scroll_frame.winfo_children():
             info = widget.grid_info()
             if info:
-                r = int(info.get("row", 0))
-                if 1 <= r < 100:
-                    widget.destroy()
-        # 重建勾选框
-        row = 1
-        col = 0
-        for cmd in self.available_global_commands:
-            if cmd == "飞鹰整备":
-                continue
-            if cmd not in self.global_command_vars:
-                self.global_command_vars[cmd] = ctk.BooleanVar(value=False)
-            var = self.global_command_vars[cmd]
-            checkbox = ctk.CTkCheckBox(
-                self.scroll_frame,
-                text=cmd,
-                variable=var,
-                command=lambda c=cmd, v=var: self.on_global_command_toggled(c, v.get()),
-                text_color="#FFFFFF",
-                fg_color="#FFD700",
-                border_color="#FFD700",
-                hover_color="#FFDD55",
-                font=("Arial", 13),
-                checkbox_width=24,
-                checkbox_height=24,
-            )
-            checkbox.grid(row=row, column=col, sticky="w", padx=15, pady=10)
-            col += 1
-            if col >= 3:
-                col = 0
-                row += 1
-
+                try:
+                    if 1 <= int(info.get("row", 0)) < 100:
+                        widget.destroy()
+                except (ValueError, TypeError):
+                    pass
+        self._render_global_checkboxes(self.scroll_frame, start_row=1)

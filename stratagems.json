@@ -977,5 +977,15 @@
     "飞鹰烟幕",
     "飞鹰燃烧弹",
     "飞鹰火箭巢"
-  ]
+  ],
+  "defaults": {
+    "active_slots": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "global_commands_enabled": [],
+    "eagle_rearm_name": "飞鹰整备"
+  }
 }
