@@ -97,8 +97,13 @@ class StratagemEditorTab:
     def _get_items_in_category(self, category: str) -> List[str]:
         stratagems = self.data.get("stratagems", {})
         if category == "未分类":
-            known = set(n for names in self._cats.values() for n in names)
-            return [n for n in stratagems if n not in known]
+            # 优先使用 categories 里已记录的未分类列表
+            recorded = [n for n in self._cats.get("未分类", []) if n in stratagems]
+            # 再加上动态发现的（在 stratagems 里但不在任何分类里的）
+            all_known = set(n for cat, names in self._cats.items()
+                           if cat != "未分类" for n in names)
+            dynamic = [n for n in stratagems if n not in all_known and n not in recorded]
+            return recorded + dynamic
         return [n for n in self._cats.get(category, []) if n in stratagems]
 
     def _all_category_names(self) -> List[str]:
