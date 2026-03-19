@@ -90,8 +90,6 @@ python main_modular.py
    ```
 4. 在程序「设置」Tab 选择「Vosk 离线识别」即可
 
-详细说明见 [VOSK_README.md](VOSK_README.md)
-
 ---
 
 ## 🎮 使用方法
