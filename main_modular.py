@@ -270,6 +270,9 @@ class StratagemApp(ctk.CTk):
         # 同步 matcher 的 aliases
         self.engine.matcher.aliases = self.stratagem_manager.aliases
 
+        # 重新同步编辑器的数据引用（load_stratagems 会创建新对象）
+        self.editor_tab._load_data()
+
         # 刷新主界面全局指令勾选框
         new_global = self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS
         self.main_tab.refresh_global_commands(new_global)
