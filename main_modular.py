@@ -264,31 +264,62 @@ class StratagemApp(ctk.CTk):
     
     def _on_stratagem_json_saved(self, json_path: str = None):
         """战备JSON保存回调（热更新）"""
-        # 重新加载战备数据（含 categories、eagle_stratagems）
-        self.stratagem_manager.load_stratagems()
+        try:
+            # 重新加载战备数据（含 categories、eagle_stratagems）
+            self.stratagem_manager.load_stratagems()
 
-        # 同步 matcher 的 aliases
-        self.engine.matcher.aliases = self.stratagem_manager.aliases
+            # 同步 matcher 的 aliases
+            self.engine.matcher.aliases = self.stratagem_manager.aliases
 
-        # 重新同步编辑器的数据引用（load_stratagems 会创建新对象）
-        self.editor_tab._load_data()
+            # 重新同步编辑器的数据引用（load_stratagems 会创建新对象）
+            self.editor_tab._load_data()
 
-        # 刷新主界面全局指令勾选框
-        new_global = self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS
-        self.main_tab.refresh_global_commands(new_global)
+            # 刷新主界面全局指令勾选框
+            new_global = self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS
+            self.main_tab.refresh_global_commands(new_global)
 
-        # 刷新主界面和测试界面的战备列表
-        all_names = self.stratagem_manager.get_all_names()
-        self.main_tab.refresh_stratagem_names(all_names)
-        self.test_tab.refresh_stratagem_names(all_names)
+            # 刷新主界面和测试界面的战备列表
+            all_names = self.stratagem_manager.get_all_names()
+            self.main_tab.refresh_stratagem_names(all_names)
+            self.test_tab.refresh_stratagem_names(all_names)
 
-        # 如果引擎正在运行，重启监听使新数据立即生效
-        if self.engine_running:
-            self.engine.stop()
-            self.engine.start()
-            self.log_manager.log("战备指令已更新并热重载，监听已自动重启。")
-        else:
-            self.log_manager.log("战备指令已更新，下次启动监听时生效。")
+            # 如果引擎正在运行，安全地重启监听使新数据立即生效
+            if self.engine_running:
+                try:
+                    # 记录当前状态
+                    was_dry_run = self.test_tab.dry_run_var.get()
+                    
+                    # 停止监听
+                    self.engine.stop()
+                    self.log_manager.log("正在重新加载战备数据...")
+                    
+                    # 重新启动监听
+                    self.engine.start()
+                    
+                    # 恢复测试模式状态
+                    self.engine.set_dry_run(was_dry_run)
+                    
+                    self.log_manager.log("✅ 战备指令已更新，监听已自动重启。")
+                except Exception as e:
+                    # 重启失败时的异常处理
+                    self.log_manager.log(f"❌ 热重载失败: {str(e)}")
+                    self.log_manager.log("⚠️ 已停止监听，请检查错误后重新启动。")
+                    
+                    # 强制恢复 UI 状态
+                    self.engine_running = False
+                    self.main_tab.set_button_state(False)
+                    
+                    # 尝试清理引擎状态
+                    try:
+                        self.engine.stop()
+                    except Exception:
+                        pass
+            else:
+                self.log_manager.log("✅ 战备指令已更新，下次启动监听时生效。")
+                
+        except Exception as e:
+            self.log_manager.log(f"❌ 战备数据加载失败: {str(e)}")
+            self.log_manager.log("⚠️ 请检查 stratagems.json 文件是否完整。")
 
 if __name__ == "__main__":
     app = StratagemApp()
