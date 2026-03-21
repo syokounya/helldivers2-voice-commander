@@ -296,15 +296,102 @@ class MainTab:
             self._eagle_rearm = self._sm.eagle_rearm_name
         self._slot_cats = [c for c in self._cats if c != self._global_cat]
         slot_cats = self._slot_cats or list(self._cats.keys())
-        for cat_var, slot_menu, cat_menu in zip(
+
+        for i, (cat_var, slot_menu, cat_menu) in enumerate(zip(
             self.slot_category_vars, self.slot_menus, self.slot_category_menus
-        ):
+        )):
+            # 1) 刷新分类列表
             cat_menu.configure(values=slot_cats if slot_cats else [""])
             cur_cat = cat_var.get()
             if cur_cat not in self._cats:
                 cur_cat = slot_cats[0] if slot_cats else ""
                 cat_var.set(cur_cat)
-            slot_menu.configure(values=["无"] + self._cats.get(cur_cat, []))
+
+            # 2) 取该分类下最新战备列表
+            items = ["无"] + self._cats.get(cur_cat, [])
+
+            # 3) 如果当前槽位值不在新列表里，重置为"无"
+            cur_val = self.slot_vars[i].get()
+            if cur_val not in items:
+                self.slot_vars[i].set("无")
+                self.on_slot_changed(i, "")
+
+            # 4) 强制重建槽位下拉组件，确保 dropdown 内部缓存同步
+            sf = self.slot_frames[i]
+            old_menu = self.slot_menus[i]
+            old_menu.destroy()
+            new_menu = ctk.CTkOptionMenu(
+                sf,
+                variable=self.slot_vars[i],
+                values=items,
+                command=lambda val, idx=i: self._on_slot_menu_changed(idx, val),
+                fg_color="#333333",
+                button_color="#444444",
+                button_hover_color="#555555",
+                text_color="#FFFFFF",
+                dropdown_fg_color="#333333",
+                dropdown_text_color="#FFFFFF",
+            )
+            new_menu.grid(row=0, column=2, padx=10, pady=12, sticky="ew")
+            self.slot_menus[i] = new_menu
+
+    def force_reload_from_manager(self):
+        """强制从 stratagem_manager 全量重建主界面联动数据与控件"""
+        if not self._sm:
+            return
+
+        # 1) 重新同步数据源
+        self._cats = self._sm.categories
+        self._global_cat = self._sm.global_category
+        self._eagle_rearm = self._sm.eagle_rearm_name
+        self.available_global_commands = list(self._sm.AVAILABLE_GLOBAL_COMMANDS)
+        self.enabled_global_commands = set(self._sm.global_commands)
+        self.active_slots = list(self._sm.active_slots)
+
+        # 2) 全量重建全局指令勾选框
+        self.refresh_global_commands(self.available_global_commands)
+
+        # 3) 全量重建槽位分类与战备菜单
+        self._slot_cats = [c for c in self._cats if c != self._global_cat]
+        slot_cats = self._slot_cats or list(self._cats.keys())
+
+        for i in range(4):
+            # 分类当前值
+            cur_val = self.active_slots[i] if i < len(self.active_slots) else ""
+            cur_cat = slot_cats[0] if slot_cats else ""
+            for cat, items in self._cats.items():
+                if cur_val in items and cat != self._global_cat:
+                    cur_cat = cat
+                    break
+
+            # 更新分类菜单
+            self.slot_category_vars[i].set(cur_cat)
+            self.slot_category_menus[i].configure(values=slot_cats if slot_cats else [""])
+
+            # 生成当前分类战备列表
+            items = ["无"] + self._cats.get(cur_cat, [])
+            if cur_val not in self._cats.get(cur_cat, []):
+                cur_val = ""
+            self.slot_vars[i].set(cur_val if cur_val else "无")
+
+            # 重建战备菜单（确保内部 dropdown 同步）
+            sf = self.slot_frames[i]
+            old_menu = self.slot_menus[i]
+            old_menu.destroy()
+            new_menu = ctk.CTkOptionMenu(
+                sf,
+                variable=self.slot_vars[i],
+                values=items,
+                command=lambda val, idx=i: self._on_slot_menu_changed(idx, val),
+                fg_color="#333333",
+                button_color="#444444",
+                button_hover_color="#555555",
+                text_color="#FFFFFF",
+                dropdown_fg_color="#333333",
+                dropdown_text_color="#FFFFFF",
+            )
+            new_menu.grid(row=0, column=2, padx=10, pady=12, sticky="ew")
+            self.slot_menus[i] = new_menu
 
     def refresh_global_commands(self, new_global_commands) -> None:
         self.available_global_commands = list(new_global_commands)

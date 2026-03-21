@@ -82,6 +82,12 @@ class StratagemEditorTab:
                     save_data['defaults'] = raw['defaults']
             with open(self.json_path, 'w', encoding='utf-8') as f:
                 json.dump(save_data, f, ensure_ascii=False, indent=2)
+
+            # 保存后立刻强制从文件回载，确保 manager 与 UI 完全一致
+            if self.stratagem_manager:
+                self.stratagem_manager.load_stratagems()
+                self._load_data()
+
             if self.on_save_callback:
                 self.on_save_callback(self.json_path)
             self._set_status("保存成功", "#4CAF50")
@@ -96,24 +102,12 @@ class StratagemEditorTab:
 
     def _get_items_in_category(self, category: str) -> List[str]:
         stratagems = self.data.get("stratagems", {})
-        if category == "未分类":
-            # 优先使用 categories 里已记录的未分类列表
-            recorded = [n for n in self._cats.get("未分类", []) if n in stratagems]
-            # 再加上动态发现的（在 stratagems 里但不在任何分类里的）
-            all_known = set(n for cat, names in self._cats.items()
-                           if cat != "未分类" for n in names)
-            dynamic = [n for n in stratagems if n not in all_known and n not in recorded]
-            return recorded + dynamic
+        # 未分类也只走显式索引，禁止动态推导混入
         return [n for n in self._cats.get(category, []) if n in stratagems]
 
     def _all_category_names(self) -> List[str]:
-        cats = list(self._cats.keys())
-        stratagems = self.data.get("stratagems", {})
-        known = set(n for names in self._cats.values() for n in names)
-        if any(n not in known for n in stratagems):
-            if "未分类" not in cats:
-                cats.append("未分类")
-        return cats
+        # 完全由显式 categories 决定
+        return list(self._cats.keys())
 
     def _build(self):
         outer = ctk.CTkFrame(self.parent, fg_color="#000000")
@@ -333,12 +327,32 @@ class StratagemEditorTab:
         self._set_status("请输入名称并录制指令", "#2196F3")
 
     def _ensure_json_consistency(self):
-        """清理 categories 里不存在于 stratagems 的孤立条目"""
+        """归一化 categories：清孤儿、补未分类、确保唯一归属"""
         stratagems = self.data.get("stratagems", {})
+
+        # 1) 清理 categories 中不存在于 stratagems 的条目
         for members in self._cats.values():
             orphans = [m for m in members if m not in stratagems]
             for o in orphans:
                 members.remove(o)
+
+        # 2) 确保每个战备最多只在一个分类里（保留第一次出现）
+        seen = set()
+        for cat in list(self._cats.keys()):
+            unique_members = []
+            for m in self._cats.get(cat, []):
+                if m not in seen:
+                    unique_members.append(m)
+                    seen.add(m)
+            self._cats[cat] = unique_members
+
+        # 3) 把未归类战备补入“未分类”
+        uncategorized = [n for n in stratagems.keys() if n not in seen]
+        if uncategorized:
+            self._cats.setdefault("未分类", [])
+            for n in uncategorized:
+                if n not in self._cats["未分类"]:
+                    self._cats["未分类"].append(n)
 
     def _on_save(self):
         name = self.item_name_entry.get().strip()
@@ -353,7 +367,7 @@ class StratagemEditorTab:
             old_name = self.current_item_name
             if old_name and old_name != name:
                 old_cat = self._get_category_for(old_name)
-                if old_cat != "未分类" and old_name in self._cats.get(old_cat, []):
+                if old_name in self._cats.get(old_cat, []):
                     idx = self._cats[old_cat].index(old_name)
                     self._cats[old_cat][idx] = name
                 self.data["stratagems"].pop(old_name, None)
@@ -361,9 +375,10 @@ class StratagemEditorTab:
                 tgt = (self.target_cat_menu.get()
                        if self.target_cat_frame.winfo_ismapped()
                        else self.category_menu.get())
-                if tgt and tgt != "未分类":
-                    if name not in self._cats.get(tgt, []):
-                        self._cats.setdefault(tgt, []).append(name)
+                if tgt:
+                    self._cats.setdefault(tgt, [])
+                    if name not in self._cats[tgt]:
+                        self._cats[tgt].append(name)
             self.data.setdefault("stratagems", {})[name] = self.recorded_keys
             self._ensure_json_consistency()
             self._save_data()
@@ -397,9 +412,10 @@ class StratagemEditorTab:
             return
         if self.edit_mode == "战备":
             old_cat = self._get_category_for(self.current_item_name)
-            if old_cat != "未分类" and self.current_item_name in self._cats.get(old_cat, []):
+            if self.current_item_name in self._cats.get(old_cat, []):
                 self._cats[old_cat].remove(self.current_item_name)
             self.data.get("stratagems", {}).pop(self.current_item_name, None)
+            self._ensure_json_consistency()
             self._save_data()
             all_cats = self._all_category_names()
             self.category_menu.configure(values=all_cats)

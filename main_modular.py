@@ -274,6 +274,9 @@ class StratagemApp(ctk.CTk):
             # 重新同步编辑器的数据引用（load_stratagems 会创建新对象）
             self.editor_tab._load_data()
 
+            # 强制主界面全量重建（避免局部刷新遗漏）
+            self.main_tab.force_reload_from_manager()
+
             # 刷新主界面全局指令勾选框
             new_global = self.stratagem_manager.AVAILABLE_GLOBAL_COMMANDS
             self.main_tab.refresh_global_commands(new_global)
